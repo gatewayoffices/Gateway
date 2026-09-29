@@ -25,7 +25,9 @@ class BackendException implements Exception {
     BackendErrorKind.invalidCode => 'That code is not right. Try again.',
     BackendErrorKind.offline =>
       'Could not reach Palava. Check your connection and try again.',
-    BackendErrorKind.unknown => 'Something went wrong. Please try again.',
+    BackendErrorKind.unknown =>
+      'Something went wrong. Please try again.'
+          '${detail == null ? '' : ' ($detail)'}',
   };
 
   @override

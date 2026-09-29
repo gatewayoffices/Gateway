@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 import 'package:http/http.dart' show ClientException;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -295,8 +295,18 @@ class SupabaseBackend implements Backend {
         await _client.from('profiles').update(changes).eq('id', _userId);
       });
 
-  /// Turns network and server errors into [BackendException]s.
+  /// Turns network and server errors into [BackendException]s, and logs
+  /// them so the reason shows in the `flutter run` window.
   static Future<T> _guard<T>(Future<T> Function() action) async {
+    try {
+      return await _translate(action);
+    } on BackendException catch (e) {
+      debugPrint('Palava backend error: ${e.kind.name}: ${e.detail}');
+      rethrow;
+    }
+  }
+
+  static Future<T> _translate<T>(Future<T> Function() action) async {
     try {
       return await action();
     } on BackendException {
