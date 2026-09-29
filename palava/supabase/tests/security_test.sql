@@ -43,9 +43,19 @@ select pg_temp.check(
   (select count(*) from public.passes) = 2 and
   (select count(*) from public.home_rows) = 3,
   'guests see coin packs, passes and home rows');
-select pg_temp.check(
-  (select count(*) from public.wallets) = 0,
-  'guests see no wallets');
+rollback;
+
+begin;
+set local role anon;
+do $$
+begin
+  if (select count(*) from public.wallets) > 0 then
+    raise exception 'FAILED: guests can see wallets';
+  end if;
+  raise notice 'ok: guests see no wallets';
+exception when insufficient_privilege then
+  raise notice 'ok: guests see no wallets';
+end $$;
 rollback;
 
 begin;
@@ -77,7 +87,12 @@ select pg_temp.check(
   (select amount from public.wallet_transactions where reason = 'welcome') = 45,
   'the welcome coins are recorded');
 
-update public.wallets set balance = 99999;
+do $$
+begin
+  update public.wallets set balance = 99999;
+exception when insufficient_privilege then
+  null; -- refused outright: also fine
+end $$;
 select pg_temp.check(
   (select balance from public.wallets) = 45,
   'viewers cannot change their own balance');

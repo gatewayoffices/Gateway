@@ -318,6 +318,9 @@ class SupabaseBackend implements Backend {
       throw BackendException(BackendErrorKind.offline, e.message);
     } on ClientException catch (e) {
       throw BackendException(BackendErrorKind.offline, e.message);
+    } on Object catch (e) {
+      // Anything unexpected (e.g. data in a shape the app does not know).
+      throw BackendException(BackendErrorKind.unknown, e.toString());
     }
   }
 }

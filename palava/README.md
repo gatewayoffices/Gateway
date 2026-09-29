@@ -258,8 +258,12 @@ as before. Do them in order; each takes a few minutes.
 4. Click in the Supabase query box, press **Ctrl+V**, then click **Run**. You
    should see "Success. No rows returned".
 5. Click **New query** again and do the same with
+   `Documents\Gateway\palava\supabase\migrations\20260930000000_grant_app_access.sql`.
+   This lets the app read the tables (newer Supabase projects do not allow it
+   automatically).
+6. Click **New query** again and do the same with
    `Documents\Gateway\palava\supabase\seed.sql`. This loads the sample series.
-6. Check: click **Table Editor** in the left menu. You should see tables such
+7. Check: click **Table Editor** in the left menu. You should see tables such
    as `series` (8 rows) and `episodes`.
 
 ### Step C: Connect the app

@@ -62,6 +62,10 @@ class AppState extends ChangeNotifier {
   late AppPhase phase;
   Catalog? _catalog;
 
+  /// Technical reason the catalog last failed to load, shown in small print
+  /// on the retry screen so problems can be diagnosed.
+  String? catalogError;
+
   /// Only use once [phase] is [AppPhase.ready].
   Catalog get catalog => _catalog!;
   AppConfig get config => catalog.config;
@@ -82,7 +86,10 @@ class AppState extends ChangeNotifier {
     try {
       _catalog = await backend.loadCatalog();
       phase = AppPhase.ready;
-    } on BackendException {
+      catalogError = null;
+    } on BackendException catch (e) {
+      catalogError = '${e.kind.name}: ${e.detail ?? ''}';
+      debugPrint('Palava: catalog failed to load ($catalogError)');
       // Keep showing the saved copy if there is one.
       if (_catalog == null) phase = AppPhase.failed;
     }

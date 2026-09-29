@@ -67,7 +67,10 @@ class _Root extends StatelessWidget {
     final state = AppStateScope.of(context);
     return switch (state.phase) {
       AppPhase.loading => const _Loading(),
-      AppPhase.failed => _LoadFailed(onRetry: state.refreshCatalog),
+      AppPhase.failed => _LoadFailed(
+        onRetry: state.refreshCatalog,
+        detail: state.catalogError,
+      ),
       AppPhase.ready =>
         state.enteredApp ? const MainShell() : const WelcomeScreen(),
     };
@@ -95,9 +98,10 @@ class _Loading extends StatelessWidget {
 }
 
 class _LoadFailed extends StatelessWidget {
-  const _LoadFailed({required this.onRetry});
+  const _LoadFailed({required this.onRetry, this.detail});
 
   final VoidCallback onRetry;
+  final String? detail;
 
   @override
   Widget build(BuildContext context) {
@@ -121,6 +125,14 @@ class _LoadFailed extends StatelessWidget {
                   onPressed: onRetry,
                   child: const Text('Try again'),
                 ),
+                if (detail != null) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    detail!,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ],
             ),
           ),
