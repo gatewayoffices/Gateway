@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'ads/rewarded_ads.dart';
 import 'backend/backend.dart';
 import 'backend/backend_config.dart';
 import 'backend/sample_backend.dart';
@@ -33,7 +35,15 @@ Future<void> main() async {
       ? await SupabaseBackend.connect(config, prefs)
       : SampleBackend();
 
-  final state = AppState(backend: backend, prefs: prefs);
+  final onPhone =
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+  final state = AppState(
+    backend: backend,
+    prefs: prefs,
+    rewardedAds: onPhone ? AdMobRewardedAds() : null,
+  );
   runApp(PalavaApp(state: state));
   await state.start();
 }

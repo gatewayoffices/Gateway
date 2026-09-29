@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'api/admin_api.dart';
+import 'screens/purchases_screen.dart';
 import 'screens/home_rows_screen.dart';
 import 'screens/series_list_screen.dart';
 import 'screens/settings_screen.dart';
@@ -215,6 +216,7 @@ class _AdminShellState extends State<AdminShell> {
       SettingsScreen(api: widget.api),
       StoreScreen(api: widget.api),
       HomeRowsScreen(api: widget.api),
+      PurchasesScreen(api: widget.api),
     ];
     return Scaffold(
       body: Row(
@@ -267,6 +269,11 @@ class _AdminShellState extends State<AdminShell> {
                 icon: Icon(Icons.view_carousel_outlined),
                 selectedIcon: Icon(Icons.view_carousel),
                 label: Text('Home rows'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.receipt_long_outlined),
+                selectedIcon: Icon(Icons.receipt_long),
+                label: Text('Purchases'),
               ),
             ],
           ),

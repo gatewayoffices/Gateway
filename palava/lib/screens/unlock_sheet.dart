@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../ads/rewarded_ads.dart';
 import '../backend/backend.dart';
 import '../data/models.dart';
 import '../state/app_state.dart';
@@ -52,15 +53,20 @@ class _UnlockSheetState extends State<UnlockSheet> {
     );
   }
 
-  Future<void> _run(Future<void> Function() unlock) async {
+  /// [unlock] returns null when done, or a sentence explaining why not.
+  Future<void> _run(Future<String?> Function() unlock) async {
     final navigator = Navigator.of(context);
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      await unlock();
-      navigator.pop(true);
+      final problem = await unlock();
+      if (problem == null) {
+        navigator.pop(true);
+      } else if (mounted) {
+        setState(() => _error = problem);
+      }
     } on BackendException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
@@ -161,8 +167,10 @@ class _UnlockSheetState extends State<UnlockSheet> {
               onPressed: _busy
                   ? null
                   : canAfford
-                  ? () =>
-                        _run(() => state.unlockWithCoins(series, episodeNumber))
+                  ? () => _run(() async {
+                      await state.unlockWithCoins(series, episodeNumber);
+                      return null;
+                    })
                   : () => _openWallet(context),
               child: _busy
                   ? const SizedBox.square(
@@ -186,9 +194,20 @@ class _UnlockSheetState extends State<UnlockSheet> {
             ],
             const SizedBox(height: 10),
             OutlinedButton.icon(
-              // Real rewarded ads come from AdMob in Milestone 6.
               onPressed: state.adsLeftToday > 0 && !_busy
-                  ? () => _run(() => state.unlockWithAd(series, episodeNumber))
+                  ? () => _run(() async {
+                      final outcome = await state.unlockWithAd(
+                        series,
+                        episodeNumber,
+                      );
+                      return switch (outcome) {
+                        AdOutcome.rewarded => null,
+                        AdOutcome.skipped =>
+                          'Watch the whole ad to unlock the episode.',
+                        AdOutcome.unavailable =>
+                          'No ad is available right now. Try again later.',
+                      };
+                    })
                   : null,
               icon: const Icon(Icons.smart_display_outlined),
               label: Text(

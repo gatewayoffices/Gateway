@@ -15,14 +15,19 @@ class SampleData {
     dataSaverMaxBitrate: 800000,
     priceLabel: '[PRICE]',
     coinPacks: [
-      CoinPack(coins: 100),
-      CoinPack(coins: 300, bonusCoins: 20),
-      CoinPack(coins: 600, bonusCoins: 60),
-      CoinPack(coins: 1200, bonusCoins: 150),
+      CoinPack(id: 1, coins: 100),
+      CoinPack(id: 2, coins: 300, bonusCoins: 20),
+      CoinPack(id: 3, coins: 600, bonusCoins: 60),
+      CoinPack(id: 4, coins: 1200, bonusCoins: 150),
     ],
     passes: [
-      Pass(name: 'Day pass', description: 'Every episode, 24 hours'),
-      Pass(name: 'Week pass', description: 'Every episode, 7 days'),
+      Pass(id: 'day', name: 'Day pass', description: 'Every episode, 24 hours'),
+      Pass(
+        id: 'week',
+        name: 'Week pass',
+        description: 'Every episode, 7 days',
+        durationHours: 168,
+      ),
     ],
     homeRows: [
       HomeRow(

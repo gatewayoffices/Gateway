@@ -54,8 +54,8 @@ class _StoreScreenState extends State<StoreScreen> {
             const PageHeader(
               'Store',
               subtitle:
-                  'What the Wallet sells. Payments are connected in '
-                  'Milestone 6; until then prices are only labels.',
+                  'What the Wallet sells. Prices are labels for now: '
+                  'payments run in test mode (see Settings and Purchases).',
             ),
             Card(
               child: Padding(

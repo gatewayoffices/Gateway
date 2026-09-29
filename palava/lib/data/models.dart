@@ -133,18 +133,21 @@ class Pass {
     required this.description,
     this.id,
     this.priceLabel,
+    this.durationHours = 24,
   });
 
   final String? id;
   final String name;
   final String description;
   final String? priceLabel;
+  final int durationHours;
 
   factory Pass.fromJson(Map<String, dynamic> json) => Pass(
     id: json['id'] as String?,
     name: json['name'] as String,
     description: json['description'] as String? ?? '',
     priceLabel: json['price_label'] as String?,
+    durationHours: json['duration_hours'] as int? ?? 24,
   );
 
   Map<String, dynamic> toJson() => {
@@ -152,6 +155,7 @@ class Pass {
     'name': name,
     'description': description,
     'price_label': priceLabel,
+    'duration_hours': durationHours,
   };
 }
 
@@ -170,6 +174,17 @@ class HomeRow {
   Map<String, dynamic> toJson() => {'title': title, 'series_ids': seriesIds};
 }
 
+enum PaymentMode {
+  /// The Pay button says payments are not open yet.
+  off,
+
+  /// Nothing is charged; an admin confirms each purchase in the admin panel.
+  test;
+
+  static PaymentMode parse(String? value) =>
+      value == 'off' ? PaymentMode.off : PaymentMode.test;
+}
+
 /// Everything the business may change without releasing a new app. Loaded
 /// from the backend (`app_settings`, `coin_packs`, `passes`, `home_rows`);
 /// Milestone 5's admin panel edits it.
@@ -183,6 +198,7 @@ class AppConfig {
     required this.passes,
     required this.homeRows,
     required this.priceLabel,
+    this.paymentMode = PaymentMode.test,
   });
 
   final int freeEpisodeCount;
@@ -197,6 +213,9 @@ class AppConfig {
 
   /// Prices are not set yet, so every price shows this placeholder.
   final String priceLabel;
+
+  /// How the Pay button behaves (set in the admin panel).
+  final PaymentMode paymentMode;
 
   int freeEpisodesFor(Series series) => series.freeEpisodes ?? freeEpisodeCount;
 
@@ -213,6 +232,7 @@ class AppConfig {
     'free_ads_per_day': freeAdsPerDay,
     'data_saver_max_bitrate': dataSaverMaxBitrate,
     'price_label': priceLabel,
+    'payment_mode': paymentMode.name,
     'coin_packs': [for (final p in coinPacks) p.toJson()],
     'passes': [for (final p in passes) p.toJson()],
     'home_rows': [for (final r in homeRows) r.toJson()],
@@ -224,6 +244,7 @@ class AppConfig {
     freeAdsPerDay: json['free_ads_per_day'] as int,
     dataSaverMaxBitrate: json['data_saver_max_bitrate'] as int,
     priceLabel: json['price_label'] as String,
+    paymentMode: PaymentMode.parse(json['payment_mode'] as String?),
     coinPacks: [
       for (final p in json['coin_packs'] as List)
         CoinPack.fromJson(p as Map<String, dynamic>),

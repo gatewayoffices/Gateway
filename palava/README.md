@@ -12,15 +12,16 @@ The project brief is in [CLAUDE.md](CLAUDE.md).
 | 3. Video player | Done |
 | 4. Backend (Supabase) | Done (real SMS and Google/Apple sign-in later) |
 | 5. Admin panel | Done |
-| 6. Monetization and payments | Next |
+| 6. Monetization and payments | In progress: coins, passes, test ads and test payments done; real payments need accounts |
 | 7. Downloads, data saver, notifications | Later |
 
 Everything you see is sample data. Videos are free public test clips from
 Google (not African dramas, and landscape rather than vertical); they only prove
 the player works. Each sample episode stops after 75 seconds so you can see the
 next one start by itself. Buttons that need a later milestone (real payments,
-downloads, sharing) show a short message saying so. Coins you "buy" in the
-Wallet are pretend: no money moves.
+downloads, sharing) show a short message saying so. Payments run in **test
+mode**: nothing is charged, and you confirm each purchase in the admin panel.
+Ads are Google's test ads, which never pay out.
 
 ---
 
@@ -398,6 +399,85 @@ each episode. Uploading video files needs a video hosting account (Mux or
 Cloudflare Stream), which turns uploads into data-saving streams; Claude will
 add uploading once that account exists.
 
+## Coins, passes, ads and test payments (Milestone 6)
+
+### One-time setup
+
+1. **Update the database.** In PowerShell, from the `palava` folder:
+   ```
+   git pull
+   notepad supabase\migrations\20261002000000_monetization.sql
+   ```
+   Press Ctrl+A, Ctrl+C. In Supabase: **SQL Editor** > **New query**, paste,
+   **Run**. Expect "Success. No rows returned". Safe to run again.
+2. **Restart the admin panel** (press `q` in its PowerShell window, then run
+   it again) so it shows the new **Purchases** page.
+3. **Restart the app on your phone** (press `q`, then the usual
+   `flutter run` command). The first build after this update takes longer:
+   it downloads Google's ads library.
+
+### How test payments work
+
+When a viewer taps **Pay**, the app creates a purchase marked **Waiting** and
+shows a reference such as `PAL-7F3A9C21`. Nothing is charged. On the admin
+panel's **Purchases** page you click **Confirm**, and the viewer gets the
+coins or the pass (they see it when they pull the Wallet down or come back
+to the app). **Cancel** gives them nothing. In **Settings** > **Payments**
+you can switch payments **Off**, which makes Pay say "Payments are not open
+yet".
+
+Later, a payment provider replaces the Confirm button: the viewer pays on
+the provider's own page and the provider tells Supabase, which pays out
+through the same code.
+
+### What to check (Milestone 6)
+
+Do these in this order: a pass unlocks everything, so test it last.
+
+1. **Buy coins.** Wallet > **300** > **MTN Mobile Money** > **Pay**. A "Test
+   payment started" box shows a reference. Under **Recent payments** it says
+   **Waiting**, and your balance has not changed.
+2. **Confirm it.** Admin panel > **Purchases**: the payment is at the top with
+   your phone number. Click **Confirm**. On the phone, pull the Wallet down:
+   the balance is 320 coins higher and the payment says **Paid**.
+3. **Rewarded ad.** Open a locked episode (for example episode 12 of any
+   series) and tap **Watch a short ad**. A Google test ad plays (it says
+   "Test Ad"). Watch it to the end and close it: the episode unlocks and the
+   count of free ads left goes down by one. Try again and close the ad early:
+   the app says to watch the whole ad, and nothing unlocks.
+4. **Auto-unlock.** Turn on **Auto-unlock next episodes** in the unlock
+   sheet, close the app completely and reopen it: the switch is still on.
+5. **Payments off.** Admin panel > **Settings** > **Payments** > **Off** >
+   **Save settings**. On the phone, pull Home down, then try **Pay**: "Payments
+   are not open yet". Switch it back to **Test mode** and save.
+6. **Day pass.** Wallet > **Day pass** > **Pay**, then **Confirm** it in the
+   admin panel. Pull the Wallet down: "Pass active ... until" shows the end
+   time, and every episode plays without the unlock sheet for 24 hours.
+
+### Accounts needed for real money and real ads
+
+Nothing here is needed to keep building; test mode works without them.
+
+- **Mobile money and cards:** an account with **Flutterwave** or **Paystack**.
+  Before choosing, ask each one whether it can take payments from **MTN
+  Mobile Money Liberia** and **Orange Money Liberia**, whether it can pay out
+  to your business, and in which currencies. Both ask for business
+  documents. Once the account exists, it gives *test keys* right away; the
+  secret key goes into Supabase (**Edge Functions** > **Secrets**), never
+  into `env.json`, Git or a chat.
+- **App store purchases:** a **Google Play Console** developer account (a
+  one-time fee), then a free **RevenueCat** account. Note that Google's rules
+  generally require coins sold *inside* an Android app to go through Google
+  Play billing, so check with Google Play's payments policy (or an adviser)
+  how mobile money payments may be offered before launch.
+- **Real rewarded ads:** a **Google AdMob** account (admob.google.com). Add
+  the Palava Android app and create a **Rewarded** ad unit. AdMob then shows
+  an **App ID** (with a `~`) and an **ad unit ID** (with a `/`). These are
+  not secret. Put the App ID in `android/gradle.properties` as
+  `admobAppId=...` and the ad unit ID in `env.json` as
+  `"ADMOB_REWARDED_ID": "..."`. Before launch, AdMob's **Privacy &
+  messaging** consent form is needed for viewers in the UK and Europe.
+
 ## For developers
 
 - `lib/theme/`: colours, fonts and the app theme (brief: "fireside").
@@ -426,6 +506,17 @@ add uploading once that account exists.
   lets accounts in `public.admins` change the catalog. Tests:
   `cd admin && flutter test` (screens, with a fake server) and
   `supabase/tests/run_api_tests.sh` (against PostgREST).
+- Monetization: `supabase/migrations/20261002000000_monetization.sql`.
+  `start_purchase` creates a pending purchase; `complete_purchase` (not
+  callable from the app) is the only place coins or passes are paid out.
+  `app_settings.payment_mode` is `test` (admins confirm on the Purchases page
+  via `admin_confirm_purchase`) or `off`. A provider webhook will call
+  `complete_purchase` with the service role. Rewarded ads:
+  `lib/ads/rewarded_ads.dart` (Google test ad unit unless
+  `ADMOB_REWARDED_ID` is set; the Android app id comes from `admobAppId` in
+  `android/gradle.properties`). Ad unlocks are still trusted from the app,
+  limited per day on the server; AdMob server-side verification comes with
+  the AdMob account.
 - Sample episodes use Google's public HLS test streams and stop at 75 seconds
   (`Episode.endsAt`); sample WebVTT subtitles come from `sample_data.dart`.
 - `lib/screens/`: one file per screen. `lib/widgets/`: shared pieces.

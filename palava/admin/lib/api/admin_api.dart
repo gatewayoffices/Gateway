@@ -57,6 +57,15 @@ abstract class AdminApi {
   Future<List<HomeRowRow>> listHomeRows();
   Future<void> saveHomeRow(HomeRowRow row);
   Future<void> deleteHomeRow(int id);
+
+  /// Newest first, unfinished ones at the top.
+  Future<List<PurchaseRow>> listPurchases();
+
+  /// Marks a test purchase paid: the viewer gets the coins or the pass.
+  Future<void> confirmPurchase(int id);
+
+  /// Marks an unfinished purchase as cancelled. Nothing is added.
+  Future<void> cancelPurchase(int id);
 }
 
 class SupabaseAdminApi implements AdminApi {
@@ -304,6 +313,33 @@ class SupabaseAdminApi implements AdminApi {
   @override
   Future<void> deleteHomeRow(int id) =>
       _guard(() => _client.from('home_rows').delete().eq('id', id));
+
+  // --- Purchases -------------------------------------------------------------
+
+  @override
+  Future<List<PurchaseRow>> listPurchases() => _guard(() async {
+    final rows = await _client.rpc<List<dynamic>>('admin_list_purchases');
+    return [
+      for (final r in rows.cast<Map<String, dynamic>>())
+        PurchaseRow.fromJson(r),
+    ];
+  });
+
+  @override
+  Future<void> confirmPurchase(int id) => _guard(
+    () => _client.rpc<void>(
+      'admin_confirm_purchase',
+      params: {'p_purchase_id': id},
+    ),
+  );
+
+  @override
+  Future<void> cancelPurchase(int id) => _guard(
+    () => _client.rpc<void>(
+      'admin_cancel_purchase',
+      params: {'p_purchase_id': id},
+    ),
+  );
 
   /// Turns server and network errors into messages for the admin.
   static Future<T> _guard<T>(Future<T> Function() action) async {

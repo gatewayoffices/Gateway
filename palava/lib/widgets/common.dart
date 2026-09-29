@@ -209,3 +209,25 @@ void showSampleMessage(BuildContext context, String message) {
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(message)));
 }
+
+/// A short date and time, e.g. "3 Oct, 14:05".
+String formatDateTime(DateTime time) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final local = time.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${local.day} ${months[local.month - 1]}, '
+      '${two(local.hour)}:${two(local.minute)}';
+}

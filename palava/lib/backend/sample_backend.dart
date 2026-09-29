@@ -20,6 +20,12 @@ class SampleBackend implements Backend {
   final Map<String, Set<int>> _unlocked = {};
   final Set<String> _myList = {'waterside', 'diaspora-daughter'};
   final Set<String> _liked = {};
+  DateTime? _passEndsAt;
+  final List<PurchaseSummary> _purchases = [];
+  int _nextPurchase = 1;
+
+  bool get _hasPass =>
+      _passEndsAt != null && DateTime.now().isBefore(_passEndsAt!);
 
   @override
   bool get isSample => true;
@@ -34,6 +40,7 @@ class SampleBackend implements Backend {
   Future<Catalog> loadCatalog() async => _catalog;
 
   bool _canWatch(Series series, int number) =>
+      _hasPass ||
       _catalog.config.isEpisodeFree(series, number) ||
       (_unlocked[series.id]?.contains(number) ?? false);
 
@@ -87,6 +94,9 @@ class SampleBackend implements Backend {
     history: const [],
     displayName: _user == null ? null : 'Palava viewer',
     phone: _user?.phone,
+    hasActivePass: _hasPass,
+    passEndsAt: _hasPass ? _passEndsAt : null,
+    recentPurchases: [..._purchases.reversed.take(5)],
   );
 
   int get _adsLeft =>
@@ -115,8 +125,39 @@ class SampleBackend implements Backend {
     return _adsLeft;
   }
 
-  /// Sample only: pretend a purchase went through. Returns the new balance.
-  int addSampleCoins(int coins) => _balance += coins;
+  /// Sample mode: every purchase goes through at once and nothing is charged.
+  @override
+  Future<PurchaseTicket> startPurchase({
+    int? coinPackId,
+    String? passId,
+    required String paymentMethod,
+  }) async {
+    final config = _catalog.config;
+    final String name;
+    if (passId != null) {
+      final pass = config.passes.firstWhere((p) => p.id == passId);
+      final start = _hasPass ? _passEndsAt! : DateTime.now();
+      _passEndsAt = start.add(Duration(hours: pass.durationHours));
+      name = pass.name;
+    } else {
+      final pack = config.coinPacks.firstWhere((p) => p.id == coinPackId);
+      _balance += pack.coins + pack.bonusCoins;
+      name = '${pack.coins + pack.bonusCoins} coins';
+    }
+    final ticket = PurchaseTicket(
+      id: _nextPurchase,
+      reference: 'SAMPLE-${_nextPurchase++}',
+    );
+    _purchases.add(
+      PurchaseSummary(
+        reference: ticket.reference,
+        productName: name,
+        status: PurchaseStatus.paid,
+        createdAt: DateTime.now(),
+      ),
+    );
+    return ticket;
+  }
 
   @override
   Future<void> setInMyList(String seriesId, bool inList) async =>

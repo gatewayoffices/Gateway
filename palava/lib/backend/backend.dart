@@ -7,6 +7,8 @@ enum BackendErrorKind {
   noAdsLeft,
   signInRequired,
   invalidCode,
+  paymentsOff,
+  tooManyPending,
   offline,
   unknown,
 }
@@ -23,6 +25,10 @@ class BackendException implements Exception {
     BackendErrorKind.noAdsLeft => 'No free ads left today.',
     BackendErrorKind.signInRequired => 'Sign in to do that.',
     BackendErrorKind.invalidCode => 'That code is not right. Try again.',
+    BackendErrorKind.paymentsOff => 'Payments are not open yet.',
+    BackendErrorKind.tooManyPending =>
+      'You have several unfinished payments. Wait for them to be confirmed, '
+          'then try again.',
     BackendErrorKind.offline =>
       'Could not reach Palava. Check your connection and try again.',
     BackendErrorKind.unknown =>
@@ -44,6 +50,33 @@ class BackendUser {
   final String? name;
 }
 
+/// A payment the viewer started.
+class PurchaseTicket {
+  const PurchaseTicket({required this.id, required this.reference});
+
+  final int id;
+
+  /// Short code the viewer and the business can quote, e.g. PAL-7F3A9C21.
+  final String reference;
+}
+
+enum PurchaseStatus { pending, paid, failed, refunded }
+
+/// One of the viewer's recent payments, for the Wallet.
+class PurchaseSummary {
+  const PurchaseSummary({
+    required this.reference,
+    required this.productName,
+    required this.status,
+    required this.createdAt,
+  });
+
+  final String reference;
+  final String productName;
+  final PurchaseStatus status;
+  final DateTime createdAt;
+}
+
 /// The signed-in viewer's own data, loaded after sign-in.
 class ViewerData {
   const ViewerData({
@@ -56,6 +89,8 @@ class ViewerData {
     this.displayName,
     this.phone,
     this.hasActivePass = false,
+    this.passEndsAt,
+    this.recentPurchases = const [],
   });
 
   final int coinBalance;
@@ -69,6 +104,10 @@ class ViewerData {
   final String? displayName;
   final String? phone;
   final bool hasActivePass;
+
+  /// When the viewer's pass (or last of several) runs out.
+  final DateTime? passEndsAt;
+  final List<PurchaseSummary> recentPurchases;
 }
 
 /// Everything the app needs from a server. [SampleBackend] fakes it on the
@@ -113,6 +152,14 @@ abstract class Backend {
 
   /// Returns the number of free ads left today.
   Future<int> unlockWithAd(Series series, int episodeNumber);
+
+  /// Starts paying for one coin pack or one pass. [paymentMethod] is one of
+  /// mtn_momo, orange_money, card, app_store.
+  Future<PurchaseTicket> startPurchase({
+    int? coinPackId,
+    String? passId,
+    required String paymentMethod,
+  });
 
   Future<void> setInMyList(String seriesId, bool inList);
 

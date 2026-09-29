@@ -24,6 +24,20 @@ class FakeAdminApi implements AdminApi {
     PassRow(id: 'day', name: 'Day pass', durationHours: 24),
   ];
   final homeRows = <HomeRowRow>[];
+  final purchases = <PurchaseRow>[
+    PurchaseRow(
+      id: 1,
+      reference: 'PAL-AAAA1111',
+      createdAt: DateTime(2026, 10, 2, 14, 5),
+      status: 'pending',
+      provider: 'test',
+      productName: '320 coins',
+      viewer: '231770000001',
+      paymentMethod: 'mtn_momo',
+      priceLabel: '[PRICE]',
+    ),
+  ];
+  final confirmed = <int>[];
   int _nextId = 100;
 
   @override
@@ -158,4 +172,32 @@ class FakeAdminApi implements AdminApi {
   @override
   Future<void> deleteHomeRow(int id) async =>
       homeRows.removeWhere((r) => r.id == id);
+
+  @override
+  Future<List<PurchaseRow>> listPurchases() async => [...purchases];
+
+  @override
+  Future<void> confirmPurchase(int id) async {
+    confirmed.add(id);
+    _setStatus(id, 'paid');
+  }
+
+  @override
+  Future<void> cancelPurchase(int id) async => _setStatus(id, 'failed');
+
+  void _setStatus(int id, String status) {
+    final i = purchases.indexWhere((p) => p.id == id);
+    final p = purchases[i];
+    purchases[i] = PurchaseRow(
+      id: p.id,
+      reference: p.reference,
+      createdAt: p.createdAt,
+      status: status,
+      provider: p.provider,
+      productName: p.productName,
+      viewer: p.viewer,
+      paymentMethod: p.paymentMethod,
+      priceLabel: p.priceLabel,
+    );
+  }
 }

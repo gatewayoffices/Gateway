@@ -177,12 +177,44 @@ void main() {
     expect(find.text('Trending in Monrovia'), findsOneWidget);
   });
 
+  testWidgets('confirm a test purchase and switch payments off', (
+    tester,
+  ) async {
+    final api = FakeAdminApi();
+    await signIn(tester, api);
+    await tester.tap(find.text('Purchases'));
+    await tester.pumpAndSettle();
+    expect(find.text('Waiting'), findsOneWidget);
+    expect(find.textContaining('MTN Mobile Money'), findsOneWidget);
+    await tester.tap(find.text('Confirm'));
+    await tester.pumpAndSettle();
+    expect(api.confirmed, [1]);
+    expect(find.text('Paid'), findsOneWidget);
+    expect(find.text('Confirm'), findsNothing);
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Test mode (nothing is charged)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Off (payments are not open yet)').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save settings'));
+    await tester.pumpAndSettle();
+    expect(api.settings.paymentMode, 'off');
+  });
+
   testWidgets('every page fits a small laptop screen', (tester) async {
     _smallScreen();
     final api = FakeAdminApi();
     await api.addEpisodes('waterside', count: 12);
     await signIn(tester, api);
-    for (final page in ['Settings', 'Store', 'Home rows', 'Series']) {
+    for (final page in [
+      'Settings',
+      'Store',
+      'Home rows',
+      'Purchases',
+      'Series',
+    ]) {
       await tester.tap(find.text(page).first);
       await tester.pumpAndSettle();
     }

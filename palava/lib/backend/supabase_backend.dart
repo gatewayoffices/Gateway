@@ -88,6 +88,7 @@ class SupabaseBackend implements Backend {
         freeAdsPerDay: settings['free_ads_per_day'] as int,
         dataSaverMaxBitrate: settings['data_saver_max_bitrate'] as int,
         priceLabel: settings['price_label'] as String,
+        paymentMode: PaymentMode.parse(settings['payment_mode'] as String?),
         coinPacks: [for (final p in rows(2)) CoinPack.fromJson(p)],
         passes: [for (final p in rows(3)) Pass.fromJson(p)],
         homeRows: [for (final r in rows(4)) HomeRow.fromJson(r)],
@@ -203,6 +204,17 @@ class SupabaseBackend implements Backend {
           .eq('id', userId)
           .maybeSingle(),
       _client.rpc<bool>('has_active_pass'),
+      _client
+          .from('user_passes')
+          .select('ends_at')
+          .gt('ends_at', DateTime.now().toUtc().toIso8601String())
+          .order('ends_at', ascending: false)
+          .limit(1),
+      _client
+          .from('purchases')
+          .select('reference, product_name, status, created_at')
+          .order('created_at', ascending: false)
+          .limit(5),
     ]);
     List<Map<String, dynamic>> rows(int i) =>
         (results[i] as List).cast<Map<String, dynamic>>();
@@ -236,6 +248,43 @@ class SupabaseBackend implements Backend {
       displayName: profile?['display_name'] as String?,
       phone: profile?['phone'] as String?,
       hasActivePass: results[7] as bool? ?? false,
+      passEndsAt: switch (rows(8)) {
+        [final row, ...] => DateTime.parse(row['ends_at'] as String).toLocal(),
+        _ => null,
+      },
+      recentPurchases: [
+        for (final r in rows(9))
+          if (r['reference'] != null)
+            PurchaseSummary(
+              reference: r['reference'] as String,
+              productName: r['product_name'] as String? ?? '',
+              status: PurchaseStatus.values.firstWhere(
+                (s) => s.name == r['status'],
+                orElse: () => PurchaseStatus.pending,
+              ),
+              createdAt: DateTime.parse(r['created_at'] as String).toLocal(),
+            ),
+      ],
+    );
+  });
+
+  @override
+  Future<PurchaseTicket> startPurchase({
+    int? coinPackId,
+    String? passId,
+    required String paymentMethod,
+  }) => _guard(() async {
+    final result = await _client.rpc<Map<String, dynamic>>(
+      'start_purchase',
+      params: {
+        'p_coin_pack_id': coinPackId,
+        'p_pass_id': passId,
+        'p_payment_method': paymentMethod,
+      },
+    );
+    return PurchaseTicket(
+      id: result['id'] as int,
+      reference: result['reference'] as String,
     );
   });
 
@@ -315,6 +364,8 @@ class SupabaseBackend implements Backend {
       throw BackendException(switch ((e.hint, e.code)) {
         ('insufficient_coins', _) => BackendErrorKind.notEnoughCoins,
         ('no_ads_left', _) => BackendErrorKind.noAdsLeft,
+        ('payments_off', _) => BackendErrorKind.paymentsOff,
+        ('too_many_pending', _) => BackendErrorKind.tooManyPending,
         (_, '28000' || '42501') => BackendErrorKind.signInRequired,
         _ => BackendErrorKind.unknown,
       }, e.message);

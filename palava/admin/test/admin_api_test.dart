@@ -46,6 +46,8 @@ void main() {
   test('a viewer is not an admin and cannot change anything', () async {
     final api = await signedInAs('PALAVA_TEST_USER_JWT', 'PALAVA_TEST_USER_ID');
     expect(await api.isAdmin(), isFalse);
+    await expectLater(api.listPurchases(), throwsA(isA<AdminException>()));
+    await expectLater(api.confirmPurchase(1), throwsA(isA<AdminException>()));
     await expectLater(
       api.createSeries(SeriesRow(id: 'nope', title: 'Nope')),
       throwsA(
@@ -168,6 +170,38 @@ void main() {
     await api.saveHomeRow(row..title = 'Big laughs');
     expect((await api.listHomeRows()).last.title, 'Big laughs');
     await api.deleteHomeRow(row.id!);
+
+    // Purchases: a viewer starts two, the admin confirms one and cancels one.
+    final viewer = SupabaseClient(
+      url!,
+      env['PALAVA_TEST_ANON_KEY']!,
+      accessToken: () async => env['PALAVA_TEST_USER_JWT'],
+    );
+    final bought = await viewer.rpc<Map<String, dynamic>>(
+      'start_purchase',
+      params: {'p_pass_id': 'week', 'p_payment_method': 'card'},
+    );
+    final dropped = await viewer.rpc<Map<String, dynamic>>(
+      'start_purchase',
+      params: {'p_pass_id': 'day'},
+    );
+    var purchases = await api.listPurchases();
+    final mine = purchases.firstWhere((p) => p.id == bought['id']);
+    expect(mine.isPending && mine.canConfirm, isTrue);
+    expect(mine.productName, 'Week pass');
+    expect(mine.viewer, '231770000009');
+    expect(mine.paymentMethod, 'card');
+    await api.confirmPurchase(bought['id'] as int);
+    await api.cancelPurchase(dropped['id'] as int);
+    purchases = await api.listPurchases();
+    expect(purchases.firstWhere((p) => p.id == bought['id']).status, 'paid');
+    expect(purchases.firstWhere((p) => p.id == dropped['id']).status, 'failed');
+
+    final settingsNow = await api.getSettings();
+    expect(settingsNow.paymentMode, 'test');
+    await api.saveSettings(settingsNow..paymentMode = 'off');
+    expect((await api.getSettings()).paymentMode, 'off');
+    await api.saveSettings(settingsNow..paymentMode = 'test');
 
     // Deleting the series removes its episodes too.
     await api.deleteSeries(draft.id);

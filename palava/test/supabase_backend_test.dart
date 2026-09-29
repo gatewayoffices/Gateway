@@ -167,4 +167,58 @@ void main() {
     expect(viewer.history.single.updatedAt, watched);
     expect(viewer.hasActivePass, isFalse);
   }, skip: skip);
+
+  test('a test payment waits for an admin, then pays out', () async {
+    await signIn();
+    final catalog = await backend.loadCatalog();
+    expect(catalog.config.paymentMode.name, 'test');
+    final before = (await backend.loadViewer()).coinBalance;
+
+    final pack = catalog.config.coinPacks.firstWhere((p) => p.coins == 300);
+    final coins = await backend.startPurchase(
+      coinPackId: pack.id,
+      paymentMethod: 'mtn_momo',
+    );
+    final pass = await backend.startPurchase(
+      passId: 'day',
+      paymentMethod: 'orange_money',
+    );
+    expect(coins.reference, startsWith('PAL-'));
+
+    var viewer = await backend.loadViewer();
+    expect(viewer.coinBalance, before);
+    expect(viewer.hasActivePass, isFalse);
+    expect(viewer.recentPurchases.map((p) => p.status), [
+      PurchaseStatus.pending,
+      PurchaseStatus.pending,
+    ]);
+    expect(viewer.recentPurchases.last.productName, '320 coins');
+
+    // The admin confirms both in the admin panel.
+    final admin = SupabaseClient(
+      url!,
+      env['PALAVA_TEST_ANON_KEY']!,
+      accessToken: () async => env['PALAVA_TEST_ADMIN_JWT'],
+    );
+    for (final id in [coins.id, pass.id]) {
+      await admin.rpc<void>(
+        'admin_confirm_purchase',
+        params: {'p_purchase_id': id},
+      );
+    }
+
+    viewer = await backend.loadViewer();
+    expect(viewer.coinBalance, before + 320);
+    expect(viewer.hasActivePass, isTrue);
+    expect(
+      viewer.passEndsAt!.difference(DateTime.now()).inHours,
+      inInclusiveRange(23, 24),
+    );
+    expect(viewer.recentPurchases.map((p) => p.status), [
+      PurchaseStatus.paid,
+      PurchaseStatus.paid,
+    ]);
+    final series = catalog.seriesById('bride-price')!;
+    expect((await backend.loadEpisode(series, 40)).isPlayable, isTrue);
+  }, skip: skip);
 }

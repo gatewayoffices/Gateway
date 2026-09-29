@@ -48,6 +48,7 @@ class _SettingsFormState extends State<_SettingsForm> {
   late final _price = TextEditingController(text: _s.priceLabel);
   late String? _featured = _s.featuredSeriesId;
   late List<String> _forYou = [..._s.forYouSeriesIds];
+  late String _paymentMode = _s.paymentMode;
   bool _saving = false;
 
   Future<void> _save() async {
@@ -60,7 +61,8 @@ class _SettingsFormState extends State<_SettingsForm> {
       ..dataSaverMaxBitrate = int.parse(_bitrate.text) * 1000
       ..priceLabel = _price.text.trim()
       ..featuredSeriesId = _featured
-      ..forYouSeriesIds = _forYou;
+      ..forYouSeriesIds = _forYou
+      ..paymentMode = _paymentMode;
     setState(() => _saving = true);
     await runAction(
       context,
@@ -182,6 +184,40 @@ class _SettingsFormState extends State<_SettingsForm> {
                     allSeries: widget.series,
                     selected: _forYou,
                     onChanged: (ids) => setState(() => _forYou = ids),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          gap,
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Payments', style: text.titleLarge),
+                  gap,
+                  DropdownButtonFormField<String>(
+                    initialValue: _paymentMode,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'When a viewer taps Pay',
+                      helperText:
+                          'Test mode charges nothing: confirm each purchase '
+                          'on the Purchases page.',
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'test',
+                        child: Text('Test mode (nothing is charged)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'off',
+                        child: Text('Off (payments are not open yet)'),
+                      ),
+                    ],
+                    onChanged: (v) => setState(() => _paymentMode = v!),
                   ),
                 ],
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../backend/backend.dart';
 import '../data/models.dart';
 import '../state/app_state.dart';
 import '../theme/palava_colors.dart';
@@ -7,13 +8,15 @@ import '../theme/palava_theme.dart';
 import '../widgets/common.dart';
 
 enum PaymentMethod {
-  mtnMomo('MTN Mobile Money', Icons.phone_android),
-  orangeMoney('Orange Money', Icons.phone_iphone),
-  card('Debit or credit card', Icons.credit_card),
-  appStore('App store', Icons.shop_outlined);
+  mtnMomo('mtn_momo', 'MTN Mobile Money', Icons.phone_android),
+  orangeMoney('orange_money', 'Orange Money', Icons.phone_iphone),
+  card('card', 'Debit or credit card', Icons.credit_card),
+  appStore('app_store', 'App store', Icons.shop_outlined);
 
-  const PaymentMethod(this.label, this.icon);
+  const PaymentMethod(this.code, this.label, this.icon);
 
+  /// Saved with the purchase.
+  final String code;
   final String label;
   final IconData icon;
 }
@@ -30,36 +33,64 @@ class _WalletScreenState extends State<WalletScreen> {
   CoinPack? _pack;
   Pass? _pass;
   PaymentMethod _method = PaymentMethod.mtnMomo;
+  bool _paying = false;
 
   bool get _hasSelection => _pack != null || _pass != null;
 
-  void _pay(AppState state) {
-    // Sample only. Real payments open the provider's hosted checkout
-    // (Flutterwave/Paystack or RevenueCat) in Milestone 6; the app never
-    // sees card or mobile-money details.
-    final pack = _pack;
-    if (!state.backend.isSample) {
-      showSampleMessage(
-        context,
-        'Payments are connected in Milestone 6. Nothing was charged.',
-      );
-    } else if (pack != null) {
-      state.addSampleCoins(pack.coins + pack.bonusCoins);
-      showSampleMessage(
-        context,
-        'Sample mode: added ${pack.coins + pack.bonusCoins} coins. '
-        'No money was charged.',
-      );
-    } else {
-      showSampleMessage(
-        context,
-        'Sample mode: passes will work once payments are connected.',
-      );
+  @override
+  void initState() {
+    super.initState();
+    // Picks up purchases confirmed since the wallet was last opened.
+    final state = AppStateScope.read(context);
+    if (state.isSignedIn) state.refreshViewer();
+  }
+
+  // The app never sees card or mobile-money details. For now payments run in
+  // test mode (an admin confirms them in the admin panel); the payment
+  // provider's hosted checkout plugs in here once its account exists.
+  Future<void> _pay(AppState state) async {
+    if (!state.canUnlock) {
+      showSampleMessage(context, 'Sign in to buy coins and passes.');
+      return;
     }
-    setState(() {
-      _pack = null;
-      _pass = null;
-    });
+    if (!state.backend.isSample &&
+        state.config.paymentMode == PaymentMode.off) {
+      showSampleMessage(context, 'Payments are not open yet.');
+      return;
+    }
+    final pack = _pack;
+    final pass = _pass;
+    setState(() => _paying = true);
+    try {
+      final ticket = await state.startPurchase(
+        pack: pack,
+        pass: pass,
+        paymentMethod: _method.code,
+      );
+      if (!mounted) return;
+      setState(() {
+        _paying = false;
+        _pack = null;
+        _pass = null;
+      });
+      final product = pass?.name ?? '${pack!.coins + pack.bonusCoins} coins';
+      if (state.backend.isSample) {
+        showSampleMessage(
+          context,
+          'Sample mode: $product added. No money was charged.',
+        );
+      } else {
+        await showDialog<void>(
+          context: context,
+          builder: (_) =>
+              _TestPaymentDialog(product: product, reference: ticket.reference),
+        );
+      }
+    } on BackendException catch (e) {
+      if (mounted) showSampleMessage(context, e.message);
+    } finally {
+      if (mounted) setState(() => _paying = false);
+    }
   }
 
   @override
@@ -74,104 +105,123 @@ class _WalletScreenState extends State<WalletScreen> {
         child: Column(
           children: [
             Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                children: [
-                  _BalanceCard(coins: state.coinBalance),
-                  const SizedBox(height: 24),
-                  Text('Coin packs', style: textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.35,
-                    children: [
-                      for (final pack in config.coinPacks)
-                        _SelectableCard(
-                          selected: _pack == pack,
-                          onTap: () => setState(() {
-                            _pack = pack;
-                            _pass = null;
-                          }),
-                          child: _CoinPackContent(
-                            pack: pack,
-                            price: config.priceOf(label: pack.priceLabel),
-                          ),
-                        ),
+              child: RefreshIndicator(
+                color: PalavaColors.ember,
+                onRefresh: state.refreshViewer,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+                  children: [
+                    _BalanceCard(coins: state.coinBalance),
+                    if (state.hasActivePass) ...[
+                      const SizedBox(height: 12),
+                      _PassActiveCard(endsAt: state.passEndsAt),
                     ],
-                  ),
-                  const SizedBox(height: 24),
-                  Text('Passes', style: textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  for (final pass in config.passes) ...[
-                    _SelectableCard(
-                      selected: _pass == pass,
-                      onTap: () => setState(() {
-                        _pass = pass;
-                        _pack = null;
-                      }),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.confirmation_number_outlined,
-                            color: PalavaColors.gold,
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(pass.name, style: textTheme.titleMedium),
-                                Text(
-                                  pass.description,
-                                  style: textTheme.bodySmall,
-                                ),
-                              ],
+                    if (state.recentPurchases.isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      Text('Recent payments', style: textTheme.titleLarge),
+                      const SizedBox(height: 8),
+                      for (final p in state.recentPurchases)
+                        _PurchaseLine(purchase: p),
+                    ],
+                    const SizedBox(height: 24),
+                    Text('Coin packs', style: textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      childAspectRatio: 1.35,
+                      children: [
+                        for (final pack in config.coinPacks)
+                          _SelectableCard(
+                            selected: _pack == pack,
+                            onTap: () => setState(() {
+                              _pack = pack;
+                              _pass = null;
+                            }),
+                            child: _CoinPackContent(
+                              pack: pack,
+                              price: config.priceOf(label: pack.priceLabel),
                             ),
                           ),
-                          Text(
-                            config.priceOf(label: pass.priceLabel),
-                            style: textTheme.titleMedium,
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                    const SizedBox(height: 10),
-                  ],
-                  const SizedBox(height: 14),
-                  Text('Pay with', style: textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  for (final method in PaymentMethod.values) ...[
-                    _SelectableCard(
-                      selected: _method == method,
-                      onTap: () => setState(() => _method = method),
-                      child: Row(
-                        children: [
-                          Icon(method.icon, color: PalavaColors.textSecondary),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Text(
-                              method.label,
+                    const SizedBox(height: 24),
+                    Text('Passes', style: textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    for (final pass in config.passes) ...[
+                      _SelectableCard(
+                        selected: _pass == pass,
+                        onTap: () => setState(() {
+                          _pass = pass;
+                          _pack = null;
+                        }),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.confirmation_number_outlined,
+                              color: PalavaColors.gold,
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(pass.name, style: textTheme.titleMedium),
+                                  Text(
+                                    pass.description,
+                                    style: textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              config.priceOf(label: pass.priceLabel),
                               style: textTheme.titleMedium,
                             ),
-                          ),
-                          Icon(
-                            _method == method
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_off,
-                            color: _method == method
-                                ? PalavaColors.ember
-                                : PalavaColors.textQuiet,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
+                      const SizedBox(height: 10),
+                    ],
+                    const SizedBox(height: 14),
+                    Text('Pay with', style: textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    for (final method in PaymentMethod.values) ...[
+                      _SelectableCard(
+                        selected: _method == method,
+                        onTap: () => setState(() => _method = method),
+                        child: Row(
+                          children: [
+                            Icon(
+                              method.icon,
+                              color: PalavaColors.textSecondary,
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                method.label,
+                                style: textTheme.titleMedium,
+                              ),
+                            ),
+                            Icon(
+                              _method == method
+                                  ? Icons.radio_button_checked
+                                  : Icons.radio_button_off,
+                              color: _method == method
+                                  ? PalavaColors.ember
+                                  : PalavaColors.textQuiet,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
             Padding(
@@ -179,12 +229,19 @@ class _WalletScreenState extends State<WalletScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: _hasSelection ? () => _pay(state) : null,
-                  child: Text(
-                    _hasSelection
-                        ? 'Pay ${config.priceOf(label: _pack?.priceLabel ?? _pass?.priceLabel)}'
-                        : 'Choose a pack or pass',
-                  ),
+                  onPressed: _hasSelection && !_paying
+                      ? () => _pay(state)
+                      : null,
+                  child: _paying
+                      ? const SizedBox.square(
+                          dimension: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        )
+                      : Text(
+                          _hasSelection
+                              ? 'Pay ${config.priceOf(label: _pack?.priceLabel ?? _pass?.priceLabel)}'
+                              : 'Choose a pack or pass',
+                        ),
                 ),
               ),
             ),
@@ -320,6 +377,123 @@ class _SelectableCard extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 56),
           child: Padding(padding: const EdgeInsets.all(14), child: child),
         ),
+      ),
+    );
+  }
+}
+
+/// Shown after starting a payment while payments are in test mode.
+class _TestPaymentDialog extends StatelessWidget {
+  const _TestPaymentDialog({required this.product, required this.reference});
+
+  final String product;
+  final String reference;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return AlertDialog(
+      title: const Text('Test payment started'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Payments are in test mode, so nothing is charged. Your $product '
+            'will arrive once the payment is confirmed.',
+            style: textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          Text('Reference', style: textTheme.bodySmall),
+          SelectableText(reference, style: textTheme.titleLarge),
+        ],
+      ),
+      actions: [
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('OK'),
+        ),
+      ],
+    );
+  }
+}
+
+class _PassActiveCard extends StatelessWidget {
+  const _PassActiveCard({required this.endsAt});
+
+  final DateTime? endsAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: PalavaColors.gold.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(PalavaRadius.medium),
+        border: Border.all(color: PalavaColors.gold),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.confirmation_number_outlined,
+            color: PalavaColors.gold,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Pass active', style: textTheme.titleMedium),
+                Text(
+                  endsAt == null
+                      ? 'Every episode is unlocked.'
+                      : 'Every episode is unlocked until '
+                            '${formatDateTime(endsAt!)}.',
+                  style: textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PurchaseLine extends StatelessWidget {
+  const _PurchaseLine({required this.purchase});
+
+  final PurchaseSummary purchase;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final (label, color) = switch (purchase.status) {
+      PurchaseStatus.pending => ('Waiting', PalavaColors.gold),
+      PurchaseStatus.paid => ('Paid', PalavaColors.textSecondary),
+      PurchaseStatus.failed => ('Cancelled', PalavaColors.textQuiet),
+      PurchaseStatus.refunded => ('Refunded', PalavaColors.textQuiet),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(purchase.productName, style: textTheme.titleMedium),
+                Text(
+                  '${purchase.reference}  ·  '
+                  '${formatDateTime(purchase.createdAt)}',
+                  style: textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          Text(label, style: textTheme.labelLarge?.copyWith(color: color)),
+        ],
       ),
     );
   }

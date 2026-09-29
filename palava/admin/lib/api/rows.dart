@@ -142,6 +142,7 @@ class Settings {
     required this.priceLabel,
     this.featuredSeriesId,
     this.forYouSeriesIds = const [],
+    this.paymentMode = 'test',
   });
 
   int freeEpisodeCount;
@@ -153,6 +154,9 @@ class Settings {
   String? featuredSeriesId;
   List<String> forYouSeriesIds;
 
+  /// 'test' (admins confirm each purchase) or 'off' (Pay is closed).
+  String paymentMode;
+
   factory Settings.fromJson(Map<String, dynamic> json) => Settings(
     freeEpisodeCount: json['free_episode_count'] as int,
     unlockCostCoins: json['unlock_cost_coins'] as int,
@@ -162,6 +166,7 @@ class Settings {
     priceLabel: json['price_label'] as String,
     featuredSeriesId: json['featured_series_id'] as String?,
     forYouSeriesIds: _strings(json['for_you_series_ids']),
+    paymentMode: json['payment_mode'] as String? ?? 'test',
   );
 
   Map<String, dynamic> toJson() => {
@@ -173,7 +178,55 @@ class Settings {
     'price_label': priceLabel,
     'featured_series_id': featuredSeriesId,
     'for_you_series_ids': forYouSeriesIds,
+    'payment_mode': paymentMode,
   };
+}
+
+/// A viewer's purchase, as listed on the Purchases page.
+class PurchaseRow {
+  PurchaseRow({
+    required this.id,
+    required this.reference,
+    required this.createdAt,
+    required this.status,
+    required this.provider,
+    required this.productName,
+    required this.viewer,
+    this.paymentMethod,
+    this.priceLabel,
+  });
+
+  final int id;
+  final String reference;
+  final DateTime createdAt;
+
+  /// pending, paid, failed or refunded.
+  final String status;
+
+  /// Who takes the money: 'test' while payments are in test mode.
+  final String provider;
+  final String productName;
+
+  /// The viewer's phone number or email.
+  final String viewer;
+  final String? paymentMethod;
+  final String? priceLabel;
+
+  bool get isPending => status == 'pending';
+  bool get canConfirm =>
+      isPending && (provider == 'test' || provider == 'manual');
+
+  factory PurchaseRow.fromJson(Map<String, dynamic> json) => PurchaseRow(
+    id: json['id'] as int,
+    reference: json['reference'] as String? ?? '#${json['id']}',
+    createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+    status: json['status'] as String,
+    provider: json['provider'] as String,
+    productName: json['product_name'] as String? ?? '',
+    viewer: json['viewer'] as String? ?? '',
+    paymentMethod: json['payment_method'] as String?,
+    priceLabel: json['price_label'] as String?,
+  );
 }
 
 class CoinPackRow {

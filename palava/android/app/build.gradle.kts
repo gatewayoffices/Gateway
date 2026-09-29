@@ -27,6 +27,11 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // AdMob app id (not a secret). Set admobAppId in android/gradle.properties
+        // once the AdMob account exists; until then Google's test app id is used.
+        manifestPlaceholders["admobAppId"] =
+            (project.findProperty("admobAppId") as String?)
+                ?: "ca-app-pub-3940256099942544~3347511713"
     }
 
     buildTypes {

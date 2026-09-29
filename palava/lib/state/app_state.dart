@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../ads/rewarded_ads.dart';
 import '../backend/backend.dart';
 import '../backend/sample_backend.dart';
 import '../data/models.dart';
@@ -35,12 +36,15 @@ class AppState extends ChangeNotifier {
     Backend? backend,
     SharedPreferences? prefs,
     VideoControllerFactory? videoFactory,
+    RewardedAds? rewardedAds,
   }) : backend = backend ?? SampleBackend(),
+       rewardedAds = rewardedAds ?? const InstantRewardedAds(),
        _prefs = prefs,
        history = WatchHistory(prefs),
        createVideoController = videoFactory ?? createNetworkController,
        dataSaver = prefs?.getBool(_dataSaverKey) ?? true,
-       subtitles = prefs?.getBool(_subtitlesKey) ?? true {
+       subtitles = prefs?.getBool(_subtitlesKey) ?? true,
+       autoUnlock = prefs?.getBool(_autoUnlockKey) ?? false {
     _catalog = this.backend.cachedCatalog;
     phase = _catalog == null ? AppPhase.loading : AppPhase.ready;
     if (this.backend case final SampleBackend sample) {
@@ -50,8 +54,10 @@ class AppState extends ChangeNotifier {
 
   static const _dataSaverKey = 'data_saver';
   static const _subtitlesKey = 'subtitles';
+  static const _autoUnlockKey = 'auto_unlock';
 
   final Backend backend;
+  final RewardedAds rewardedAds;
   final SharedPreferences? _prefs;
   final WatchHistory history;
   final VideoControllerFactory createVideoController;
@@ -85,7 +91,7 @@ class AppState extends ChangeNotifier {
   Future<void> refreshIfStale() async {
     final last = _lastRefresh;
     if (last != null && DateTime.now().difference(last).inSeconds < 30) return;
-    await refreshCatalog();
+    await Future.wait([refreshCatalog(), if (isSignedIn) refreshViewer()]);
   }
 
   Future<void> refreshCatalog() async {
@@ -128,8 +134,16 @@ class AppState extends ChangeNotifier {
 
   int coinBalance = 0;
   int adsLeftToday = 0;
-  bool hasActivePass = false;
-  bool autoUnlock = false;
+  bool autoUnlock;
+
+  /// When the viewer's pass runs out (null: no pass).
+  DateTime? passEndsAt;
+  bool _serverSaysPass = false;
+  List<PurchaseSummary> recentPurchases = const [];
+
+  bool get hasActivePass => passEndsAt != null
+      ? DateTime.now().isBefore(passEndsAt!)
+      : _serverSaysPass;
 
   bool dataSaver;
   bool subtitles;
@@ -234,7 +248,9 @@ class AppState extends ChangeNotifier {
   void _applyViewer(ViewerData? data) {
     coinBalance = data?.coinBalance ?? 0;
     adsLeftToday = data?.adsLeftToday ?? 0;
-    hasActivePass = data?.hasActivePass ?? false;
+    _serverSaysPass = data?.hasActivePass ?? false;
+    passEndsAt = data?.passEndsAt;
+    recentPurchases = data?.recentPurchases ?? const [];
     myList = {...?data?.myList};
     liked = {...?data?.liked};
     _unlocked
@@ -294,19 +310,32 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Throws [BackendException] (e.g. no ads left today).
-  Future<void> unlockWithAd(Series series, int episodeNumber) async {
+  /// Shows a rewarded ad and, if it was watched to the end, unlocks the
+  /// episode. Throws [BackendException] (e.g. no ads left today).
+  Future<AdOutcome> unlockWithAd(Series series, int episodeNumber) async {
+    final outcome = await rewardedAds.show();
+    if (outcome != AdOutcome.rewarded) return outcome;
     adsLeftToday = await backend.unlockWithAd(series, episodeNumber);
     _unlocked.putIfAbsent(series.id, () => {}).add(episodeNumber);
     notifyListeners();
+    return outcome;
   }
 
-  /// Sample data only: pretend a purchase went through.
-  void addSampleCoins(int coins) {
-    if (backend case final SampleBackend sample) {
-      coinBalance = sample.addSampleCoins(coins);
-      notifyListeners();
-    }
+  /// Starts paying for a coin pack or a pass. In sample mode it goes through
+  /// at once; in test mode it waits for an admin to confirm it. Throws
+  /// [BackendException].
+  Future<PurchaseTicket> startPurchase({
+    CoinPack? pack,
+    Pass? pass,
+    required String paymentMethod,
+  }) async {
+    final ticket = await backend.startPurchase(
+      coinPackId: pack?.id,
+      passId: pass?.id,
+      paymentMethod: paymentMethod,
+    );
+    await refreshViewer();
+    return ticket;
   }
 
   void toggleMyList(String seriesId) {
@@ -338,6 +367,7 @@ class AppState extends ChangeNotifier {
 
   void setAutoUnlock(bool value) {
     autoUnlock = value;
+    _prefs?.setBool(_autoUnlockKey, value);
     notifyListeners();
   }
 
