@@ -65,7 +65,10 @@ Check: close the terminal, open a new one, and type `git --version`.
    - Click **Plugins**, search for **Flutter**, click **Install**, and accept
      when it offers to install **Dart** too. Restart Android Studio when asked.
    - Click **More Actions > SDK Manager**, open the **SDK Tools** tab, tick
-     **Android SDK Command-line Tools (latest)**, and click **Apply**, then **OK**.
+     **Android SDK Command-line Tools (latest)**. Then tick **Show Package Details**
+     (bottom right), expand **NDK (Side by side)**, and tick version
+     **28.2.13676358**. Click **Apply**, then **OK**. (Flutter needs this exact NDK
+     version and cannot always download it by itself.)
 
 ### Step 4: Install Flutter
 
@@ -142,6 +145,12 @@ flutter run
 The first run takes 5–10 minutes while it downloads build tools. After that it
 takes under a minute. The app opens on your phone by itself, and it stays
 installed after you unplug.
+
+If more than one phone or device is connected, pick the phone by its ID from
+`flutter devices`, for example `flutter run -d 5A210DLCQ002B1`.
+
+If the build fails with **"did not install NDK"**, install the NDK version it
+names using the SDK Manager steps in Step 3, then run `flutter run` again.
 
 In the terminal while it is running: press `r` to refresh after code changes,
 and `q` to quit.
