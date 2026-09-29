@@ -73,8 +73,22 @@ class SupabaseAdminApi implements AdminApi {
       await _client.auth.signInWithPassword(email: email, password: password);
     } on AuthRetryableFetchException {
       rethrow;
-    } on AuthException {
-      throw const AdminException('Wrong email or password.');
+    } on AuthException catch (e) {
+      // Show Supabase's own reason too, so problems like an unconfirmed
+      // account or a switched-off Email provider are easy to spot.
+      final reason = e.message.toLowerCase();
+      if (reason.contains('invalid login credentials')) {
+        throw const AdminException(
+          'Wrong email or password. (Supabase: Invalid login credentials)',
+        );
+      }
+      if (reason.contains('not confirmed')) {
+        throw const AdminException(
+          'This account is not confirmed yet. In Supabase, delete the user '
+          'and add it again with "Auto Confirm User" ticked.',
+        );
+      }
+      throw AdminException('Could not sign in. (Supabase: ${e.message})');
     }
   });
 
