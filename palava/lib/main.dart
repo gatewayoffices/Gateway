@@ -59,8 +59,29 @@ class PalavaApp extends StatelessWidget {
 }
 
 /// Picks the first screen: loading, Welcome, or the app itself.
-class _Root extends StatelessWidget {
+class _Root extends StatefulWidget {
   const _Root();
+
+  @override
+  State<_Root> createState() => _RootState();
+}
+
+class _RootState extends State<_Root> {
+  late final _lifecycle = AppLifecycleListener(
+    onResume: () => AppStateScope.read(context).refreshIfStale(),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle; // Start listening.
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

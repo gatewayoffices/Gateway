@@ -27,75 +27,94 @@ class HomeScreen extends StatelessWidget {
 
     return SafeArea(
       bottom: false,
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: FittedBox(child: PalavaLogo()),
-                    ),
-                  ),
-                  CoinBadge(
-                    coins: state.coinBalance,
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const WalletScreen(),
+      child: RefreshIndicator(
+        color: PalavaColors.ember,
+        onRefresh: AppStateScope.read(context).refreshCatalog,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FittedBox(child: PalavaLogo()),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    tooltip: 'Search',
-                    iconSize: 26,
-                    constraints: const BoxConstraints(
-                      minWidth: 48,
-                      minHeight: 48,
+                    CoinBadge(
+                      coins: state.coinBalance,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const WalletScreen(),
+                        ),
+                      ),
                     ),
-                    icon: const Icon(Icons.search),
-                    onPressed: () async {
-                      final picked = await showSearch<Series?>(
-                        context: context,
-                        delegate: _SeriesSearch(),
-                      );
-                      if (picked != null && context.mounted) {
-                        openSeries(context, picked);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          if (featured != null)
-            SliverToBoxAdapter(child: _FeaturedHero(series: featured)),
-          if (continueWatching.isNotEmpty) ...[
-            const SliverToBoxAdapter(child: SectionHeader('Continue watching')),
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 214,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: continueWatching.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 12),
-                  itemBuilder: (context, i) =>
-                      _ContinueCard(item: continueWatching[i]),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      tooltip: 'Search',
+                      iconSize: 26,
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
+                      ),
+                      icon: const Icon(Icons.search),
+                      onPressed: () async {
+                        final picked = await showSearch<Series?>(
+                          context: context,
+                          delegate: _SeriesSearch(),
+                        );
+                        if (picked != null && context.mounted) {
+                          openSeries(context, picked);
+                        }
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-          for (final row in state.config.homeRows)
-            if (state.catalog.seriesFor(row.seriesIds).isNotEmpty) ...[
-              SliverToBoxAdapter(child: SectionHeader(row.title)),
-              SliverToBoxAdapter(child: _SeriesRow(row: row)),
+            if (featured != null)
+              SliverToBoxAdapter(child: _FeaturedHero(series: featured)),
+            if (continueWatching.isNotEmpty) ...[
+              const SliverToBoxAdapter(
+                child: SectionHeader('Continue watching'),
+              ),
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 214,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: continueWatching.length,
+                    separatorBuilder: (_, _) => const SizedBox(width: 12),
+                    itemBuilder: (context, i) =>
+                        _ContinueCard(item: continueWatching[i]),
+                  ),
+                ),
+              ),
             ],
-          const SliverToBoxAdapter(child: SizedBox(height: 24)),
-        ],
+            for (final row in state.config.homeRows)
+              if (state.catalog.seriesFor(row.seriesIds).isNotEmpty) ...[
+                SliverToBoxAdapter(child: SectionHeader(row.title)),
+                SliverToBoxAdapter(child: _SeriesRow(row: row)),
+              ],
+            // Every published series, so new ones appear without a home row.
+            if (state.catalog.series.isNotEmpty) ...[
+              const SliverToBoxAdapter(child: SectionHeader('All series')),
+              SliverToBoxAdapter(
+                child: _SeriesRow(
+                  row: HomeRow(
+                    title: 'All series',
+                    seriesIds: [for (final s in state.catalog.series) s.id],
+                  ),
+                ),
+              ),
+            ],
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+          ],
+        ),
       ),
     );
   }

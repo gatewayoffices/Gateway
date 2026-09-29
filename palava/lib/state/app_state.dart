@@ -78,7 +78,18 @@ class AppState extends ChangeNotifier {
     await refreshCatalog();
   }
 
+  DateTime? _lastRefresh;
+
+  /// Reloads the catalog when the viewer comes back to the app, so changes
+  /// made in the admin panel show up. Skipped if it was loaded moments ago.
+  Future<void> refreshIfStale() async {
+    final last = _lastRefresh;
+    if (last != null && DateTime.now().difference(last).inSeconds < 30) return;
+    await refreshCatalog();
+  }
+
   Future<void> refreshCatalog() async {
+    _lastRefresh = DateTime.now();
     if (_catalog == null) {
       phase = AppPhase.loading;
       notifyListeners();
