@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 
 import '../data/models.dart';
-import '../data/sample_data.dart';
 import '../playback/episode_feed.dart';
 import '../playback/episode_view.dart';
 import '../state/app_state.dart';
@@ -27,24 +25,22 @@ class ForYouScreen extends StatefulWidget {
 
 class _ForYouScreenState extends State<ForYouScreen> {
   final _feed = EpisodeFeedController();
-  final _series = SampleData.forYouSeriesIds
-      .map(SampleData.seriesById)
-      .toList();
-  late final _episodes = [
-    for (final series in _series) SampleData.episodesFor(series).first,
-  ];
+  // Fixed for the life of the feed, so pages do not shift under the viewer
+  // if the catalog refreshes.
+  late final List<Series> _series = AppStateScope.read(context).catalog.forYou;
 
   @override
   Widget build(BuildContext context) {
     final showSubtitles = AppStateScope.of(context).subtitles;
     return EpisodeFeed(
       controller: _feed,
-      episodes: _episodes,
+      itemCount: _series.length,
+      loadEpisode: (i) =>
+          AppStateScope.read(context).backend.loadEpisode(_series[i], 1),
       active: widget.isActive,
-      itemBuilder: (context, index, player) => _FeedPage(
+      itemBuilder: (context, index, item) => _FeedPage(
         series: _series[index],
-        episode: _episodes[index],
-        player: player,
+        item: item,
         showSubtitles: showSubtitles,
         onRetry: () => _feed.retry(index),
       ),
@@ -55,15 +51,13 @@ class _ForYouScreenState extends State<ForYouScreen> {
 class _FeedPage extends StatelessWidget {
   const _FeedPage({
     required this.series,
-    required this.episode,
-    required this.player,
+    required this.item,
     required this.showSubtitles,
     required this.onRetry,
   });
 
   final Series series;
-  final Episode episode;
-  final VideoPlayerController? player;
+  final FeedItem item;
   final bool showSubtitles;
   final VoidCallback onRetry;
 
@@ -102,7 +96,7 @@ class _FeedPage extends StatelessWidget {
 
   void _watchAll(BuildContext context) {
     // Carry on from the same moment in the full player.
-    final position = player?.value.position;
+    final position = item.player?.value.position;
     openPlayer(context, series, episode: 1, position: position);
   }
 
@@ -117,9 +111,10 @@ class _FeedPage extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         EpisodeVideo(
-          controller: player,
+          controller: item.player,
           showSubtitles: showSubtitles,
           onRetry: onRetry,
+          loadFailed: item.loadFailed,
           placeholder: PosterArt(
             series: series,
             showTitle: false,
@@ -234,15 +229,15 @@ class _FeedPage extends StatelessWidget {
                 const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: player == null
+                  child: item.player == null
                       ? ProgressLine(
                           value: 0,
                           height: 3,
                           trackColor: PalavaColors.text.withValues(alpha: 0.2),
                         )
                       : EpisodeProgressBar(
-                          controller: player!,
-                          endsAt: episode.endsAt,
+                          controller: item.player!,
+                          endsAt: item.episode?.endsAt,
                         ),
                 ),
               ],

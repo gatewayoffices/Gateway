@@ -55,7 +55,7 @@ class EpisodeGrid extends StatelessWidget {
       itemCount: series.episodeCount,
       itemBuilder: (context, i) {
         final episode = i + 1;
-        final unlocked = state.isUnlocked(series.id, episode);
+        final unlocked = state.isUnlocked(series, episode);
         final isCurrent = episode == currentEpisode;
         return Material(
           color: isCurrent

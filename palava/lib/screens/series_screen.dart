@@ -113,7 +113,7 @@ class SeriesScreen extends StatelessWidget {
                         child: Text('Episodes', style: textTheme.titleLarge),
                       ),
                       Text(
-                        '1–${state.config.freeEpisodeCount} free',
+                        '1–${state.config.freeEpisodesFor(series)} free',
                         style: textTheme.bodySmall?.copyWith(
                           color: PalavaColors.gold,
                         ),

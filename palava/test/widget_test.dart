@@ -79,8 +79,8 @@ void main() {
       ),
     );
 
-    expect(state.isUnlocked(series.id, 8), isTrue);
-    expect(state.isUnlocked(series.id, 9), isFalse);
+    expect(state.isUnlocked(series, 8), isTrue);
+    expect(state.isUnlocked(series, 9), isFalse);
 
     await tester.scrollUntilVisible(find.text('9'), 200);
     await tester.ensureVisible(find.text('9'));
@@ -92,7 +92,7 @@ void main() {
     final before = state.coinBalance;
     await tester.tap(find.text('Unlock with 30 coins'));
     await tester.pumpAndSettle();
-    expect(state.isUnlocked(series.id, 9), isTrue);
+    expect(state.isUnlocked(series, 9), isTrue);
     expect(state.coinBalance, before - 30);
 
     await tester.pumpWidget(const SizedBox());

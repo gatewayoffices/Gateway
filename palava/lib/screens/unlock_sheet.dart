@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../backend/backend.dart';
 import '../data/models.dart';
 import '../state/app_state.dart';
 import '../theme/palava_colors.dart';
@@ -22,7 +23,7 @@ Future<bool> showUnlockSheet(
   return result ?? false;
 }
 
-class UnlockSheet extends StatelessWidget {
+class UnlockSheet extends StatefulWidget {
   const UnlockSheet({
     super.key,
     required this.series,
@@ -32,6 +33,17 @@ class UnlockSheet extends StatelessWidget {
   final Series series;
   final int episodeNumber;
 
+  @override
+  State<UnlockSheet> createState() => _UnlockSheetState();
+}
+
+class _UnlockSheetState extends State<UnlockSheet> {
+  bool _busy = false;
+  String? _error;
+
+  Series get series => widget.series;
+  int get episodeNumber => widget.episodeNumber;
+
   void _openWallet(BuildContext context) {
     final navigator = Navigator.of(context);
     navigator.pop(false);
@@ -40,17 +52,25 @@ class UnlockSheet extends StatelessWidget {
     );
   }
 
-  void _unlockWithCoins(BuildContext context, AppState state) {
-    if (state.unlockWithCoins(series.id, episodeNumber)) {
-      Navigator.of(context).pop(true);
+  Future<void> _run(Future<void> Function() unlock) async {
+    final navigator = Navigator.of(context);
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await unlock();
+      navigator.pop(true);
+    } on BackendException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  void _watchAd(BuildContext context, AppState state) {
-    // Sample only: real rewarded ads come from AdMob in Milestone 6.
-    if (state.unlockWithAd(series.id, episodeNumber)) {
-      Navigator.of(context).pop(true);
-    }
+  void _signIn(BuildContext context, AppState state) {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    state.leaveGuestMode();
   }
 
   @override
@@ -58,8 +78,9 @@ class UnlockSheet extends StatelessWidget {
     final state = AppStateScope.of(context);
     final config = state.config;
     final textTheme = Theme.of(context).textTheme;
-    final canAfford = state.coinBalance >= config.unlockCostCoins;
-    final dayPass = config.passes.first;
+    final cost = config.unlockCostFor(series);
+    final canAfford = state.coinBalance >= cost;
+    final dayPass = config.passes.isEmpty ? null : config.passes.first;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
@@ -82,7 +103,7 @@ class UnlockSheet extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             'Keep watching ${series.title}. The first '
-            '${config.freeEpisodeCount} episodes are free.',
+            '${config.freeEpisodesFor(series)} episodes are free.',
             style: textTheme.bodyMedium,
           ),
           const SizedBox(height: 20),
@@ -117,44 +138,77 @@ class UnlockSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          FilledButton(
-            onPressed: canAfford
-                ? () => _unlockWithCoins(context, state)
-                : () => _openWallet(context),
-            child: Text(
-              canAfford
-                  ? 'Unlock with ${config.unlockCostCoins} coins'
-                  : 'Get coins to unlock',
+          if (_error != null) ...[
+            Text(
+              _error!,
+              style: textTheme.bodyMedium?.copyWith(color: PalavaColors.ember),
             ),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton(
-            onPressed: () => _openWallet(context),
-            child: Text('${dayPass.name}  ·  ${config.priceLabel}'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: state.adsLeftToday > 0
-                ? () => _watchAd(context, state)
-                : null,
-            icon: const Icon(Icons.smart_display_outlined),
-            label: Text(
-              state.adsLeftToday > 0
-                  ? 'Watch a short ad (free, ${state.adsLeftToday} left today)'
-                  : 'No free ads left today',
+            const SizedBox(height: 12),
+          ],
+          if (!state.canUnlock) ...[
+            FilledButton(
+              onPressed: () => _signIn(context, state),
+              child: const Text('Sign in to unlock'),
             ),
-          ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            value: state.autoUnlock,
-            onChanged: state.setAutoUnlock,
-            title: const Text('Auto-unlock next episodes'),
-            subtitle: Text(
-              'Use coins automatically so the story keeps playing.',
+            const SizedBox(height: 8),
+            Text(
+              'Coins and unlocked episodes are saved to your account.',
+              textAlign: TextAlign.center,
               style: textTheme.bodySmall,
             ),
-          ),
+          ] else ...[
+            FilledButton(
+              onPressed: _busy
+                  ? null
+                  : canAfford
+                  ? () =>
+                        _run(() => state.unlockWithCoins(series, episodeNumber))
+                  : () => _openWallet(context),
+              child: _busy
+                  ? const SizedBox.square(
+                      dimension: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    )
+                  : Text(
+                      canAfford
+                          ? 'Unlock with $cost coins'
+                          : 'Get coins to unlock',
+                    ),
+            ),
+            if (dayPass != null) ...[
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: () => _openWallet(context),
+                child: Text(
+                  '${dayPass.name}  ·  ${config.priceOf(label: dayPass.priceLabel)}',
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              // Real rewarded ads come from AdMob in Milestone 6.
+              onPressed: state.adsLeftToday > 0 && !_busy
+                  ? () => _run(() => state.unlockWithAd(series, episodeNumber))
+                  : null,
+              icon: const Icon(Icons.smart_display_outlined),
+              label: Text(
+                state.adsLeftToday > 0
+                    ? 'Watch a short ad (free, ${state.adsLeftToday} left today)'
+                    : 'No free ads left today',
+              ),
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: state.autoUnlock,
+              onChanged: state.setAutoUnlock,
+              title: const Text('Auto-unlock next episodes'),
+              subtitle: Text(
+                'Use coins automatically so the story keeps playing.',
+                style: textTheme.bodySmall,
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/sample_data.dart';
 import '../state/app_state.dart';
 import '../theme/palava_colors.dart';
 import '../theme/palava_theme.dart';
@@ -14,7 +13,7 @@ class MyListScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
     final textTheme = Theme.of(context).textTheme;
-    final saved = SampleData.series
+    final saved = state.catalog.series
         .where((s) => state.myList.contains(s.id))
         .toList();
 

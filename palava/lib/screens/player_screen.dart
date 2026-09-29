@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 
 import '../data/models.dart';
-import '../data/sample_data.dart';
+import '../backend/backend.dart';
 import '../playback/episode_feed.dart';
 import '../playback/episode_view.dart';
 import '../playback/watch_history.dart';
@@ -50,7 +49,7 @@ class PlayerScreen extends StatefulWidget {
 
 class _PlayerScreenState extends State<PlayerScreen> {
   final _feed = EpisodeFeedController();
-  late final List<Episode> _episodes;
+  late final int _count;
   late final int _startIndex;
   Duration? _startPosition;
   late int _index;
@@ -65,16 +64,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void initState() {
     super.initState();
     _state = AppStateScope.read(context);
-    _episodes = SampleData.episodesFor(_series);
+    _count = _series.episodeCount;
     final requested = widget.startEpisode;
     if (requested != null) {
-      _startIndex = (requested - 1).clamp(0, _episodes.length - 1);
+      _startIndex = (requested - 1).clamp(0, _count - 1);
       _startPosition = widget.startPosition;
     } else {
       final last = _state.history.lastFor(_series.id);
       if (last == null) {
         _startIndex = 0;
-      } else if (last.isFinished && last.episodeNumber < _episodes.length) {
+      } else if (last.isFinished && last.episodeNumber < _count) {
         _startIndex = last.episodeNumber; // the next episode
       } else {
         _startIndex = last.episodeNumber - 1;
@@ -84,18 +83,27 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _index = _startIndex;
   }
 
-  bool _isLocked(int index) => !_state.isUnlocked(_series.id, index + 1);
+  bool _isLocked(int index) => !_state.isUnlocked(_series, index + 1);
 
   Future<void> _onLocked(int index) async {
     final state = _state;
     final episode = index + 1;
-    if (state.autoUnlock && state.unlockWithCoins(_series.id, episode)) {
-      showSampleMessage(
-        context,
-        'Unlocked episode $episode for ${state.config.unlockCostCoins} coins.',
-      );
-      return;
+    final cost = state.config.unlockCostFor(_series);
+    if (state.autoUnlock && state.canUnlock && state.coinBalance >= cost) {
+      try {
+        await state.unlockWithCoins(_series, episode);
+        if (mounted) {
+          showSampleMessage(
+            context,
+            'Unlocked episode $episode for $cost coins.',
+          );
+        }
+        return;
+      } on BackendException {
+        // Fall through to the sheet, which explains what went wrong.
+      }
     }
+    if (!mounted) return;
     await showUnlockSheet(context, series: _series, episodeNumber: episode);
   }
 
@@ -161,7 +169,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
         children: [
           EpisodeFeed(
             controller: _feed,
-            episodes: _episodes,
+            itemCount: _count,
+            loadEpisode: (i) => _state.backend.loadEpisode(_series, i + 1),
             initialIndex: _startIndex,
             initialPosition: _startPosition,
             isLocked: _isLocked,
@@ -170,10 +179,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
             onProgress: _onProgress,
             onFinishedLast: () =>
                 showSampleMessage(context, 'That is the last episode for now.'),
-            itemBuilder: (context, index, player) => _EpisodePage(
+            itemBuilder: (context, index, item) => _EpisodePage(
               series: _series,
-              episode: _episodes[index],
-              player: player,
+              number: index + 1,
+              item: item,
               locked: _isLocked(index),
               showSubtitles: state.subtitles,
               onRetry: () => _feed.retry(index),
@@ -209,7 +218,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         Text(
-                          'Episode ${_index + 1} of ${_episodes.length}',
+                          'Episode ${_index + 1} of $_count',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: PalavaColors.textSecondary),
                         ),
@@ -251,8 +260,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 class _EpisodePage extends StatelessWidget {
   const _EpisodePage({
     required this.series,
-    required this.episode,
-    required this.player,
+    required this.number,
+    required this.item,
     required this.locked,
     required this.showSubtitles,
     required this.onRetry,
@@ -260,8 +269,8 @@ class _EpisodePage extends StatelessWidget {
   });
 
   final Series series;
-  final Episode episode;
-  final VideoPlayerController? player;
+  final int number;
+  final FeedItem item;
   final bool locked;
   final bool showSubtitles;
   final VoidCallback onRetry;
@@ -284,7 +293,7 @@ class _EpisodePage extends StatelessWidget {
                   const Icon(Icons.lock, size: 48, color: PalavaColors.gold),
                   const SizedBox(height: 12),
                   Text(
-                    'Episode ${episode.number} is locked',
+                    'Episode $number is locked',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 20),
@@ -299,7 +308,7 @@ class _EpisodePage extends StatelessWidget {
         ],
       );
     }
-    final player = this.player;
+    final player = item.player;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -307,6 +316,7 @@ class _EpisodePage extends StatelessWidget {
           controller: player,
           showSubtitles: showSubtitles,
           onRetry: onRetry,
+          loadFailed: item.loadFailed,
           placeholder: poster,
           subtitleBottomPadding: 110,
         ),
@@ -338,7 +348,7 @@ class _EpisodePage extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: EpisodeProgressBar(
                   controller: player,
-                  endsAt: episode.endsAt,
+                  endsAt: item.episode?.endsAt,
                 ),
               ),
             ),

@@ -52,6 +52,8 @@ app.*.map.json
 .env.*
 *.env
 !.env.example
+# Supabase connection details (copy env.example.json to env.json).
+env.json
 android/key.properties
 *.jks
 *.keystore

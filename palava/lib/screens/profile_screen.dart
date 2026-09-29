@@ -5,7 +5,6 @@ import '../theme/palava_colors.dart';
 import '../theme/palava_theme.dart';
 import '../widgets/common.dart';
 import 'wallet_screen.dart';
-import 'welcome_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -36,12 +35,10 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  /// Both lead back to the Welcome screen, where the viewer can sign in.
   void _logOut(BuildContext context, AppState state) {
-    state.signOut();
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const WelcomeScreen()),
-      (_) => false,
-    );
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    state.isGuest ? state.leaveGuestMode() : state.signOut();
   }
 
   @override

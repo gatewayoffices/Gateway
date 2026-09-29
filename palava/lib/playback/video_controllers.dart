@@ -11,7 +11,8 @@ typedef VideoControllerFactory = VideoPlayerController Function(
 VideoPlayerController createNetworkController(Episode episode) {
   final subtitles = episode.subtitlesVtt;
   return VideoPlayerController.networkUrl(
-    Uri.parse(episode.videoUrl),
+    // Only playable (unlocked) episodes reach here.
+    Uri.parse(episode.videoUrl!),
     formatHint: VideoFormat.hls,
     closedCaptionFile: subtitles == null
         ? null

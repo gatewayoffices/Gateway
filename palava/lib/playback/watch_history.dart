@@ -42,7 +42,7 @@ class WatchEntry {
   );
 }
 
-/// Watch history kept on the phone. Milestone 4 syncs it to Supabase so it
+/// Watch history kept on the phone. AppState syncs it to the server so it
 /// follows the viewer across devices.
 class WatchHistory {
   WatchHistory([this._prefs]) {

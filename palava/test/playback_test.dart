@@ -126,7 +126,7 @@ void main() {
 
       await tester.tap(find.text('Unlock with 30 coins'));
       await settle(tester);
-      expect(state.isUnlocked(series.id, free + 1), isTrue);
+      expect(state.isUnlocked(series, free + 1), isTrue);
       expect(fake.playing.length, 1, reason: 'plays once unlocked');
 
       await tearDownScreen(tester);

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'models.dart';
 
-/// Hard-coded sample content used until the backend exists (Milestone 4).
+/// Built-in sample content, used when Supabase is not set up (no env.json)
+/// and in tests. supabase/seed.sql loads the same series into the database.
 /// All series here are made-up placeholders for layout and testing.
 class SampleData {
   SampleData._();
@@ -185,6 +186,13 @@ class SampleData {
   ];
 
   static Series seriesById(String id) => series.firstWhere((s) => s.id == id);
+
+  static final catalog = Catalog(
+    series: series,
+    config: config,
+    featuredSeriesId: featuredSeriesId,
+    forYouSeriesIds: forYouSeriesIds,
+  );
 
   /// Free public HLS test streams (Google's Shaka Player demo assets). They
   /// are landscape and not African dramas; they only prove the player works.

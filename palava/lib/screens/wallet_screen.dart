@@ -38,7 +38,12 @@ class _WalletScreenState extends State<WalletScreen> {
     // (Flutterwave/Paystack or RevenueCat) in Milestone 6; the app never
     // sees card or mobile-money details.
     final pack = _pack;
-    if (pack != null) {
+    if (!state.backend.isSample) {
+      showSampleMessage(
+        context,
+        'Payments are connected in Milestone 6. Nothing was charged.',
+      );
+    } else if (pack != null) {
       state.addSampleCoins(pack.coins + pack.bonusCoins);
       showSampleMessage(
         context,
@@ -93,7 +98,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           }),
                           child: _CoinPackContent(
                             pack: pack,
-                            price: config.priceLabel,
+                            price: config.priceOf(label: pack.priceLabel),
                           ),
                         ),
                     ],
@@ -127,7 +132,10 @@ class _WalletScreenState extends State<WalletScreen> {
                               ],
                             ),
                           ),
-                          Text(config.priceLabel, style: textTheme.titleMedium),
+                          Text(
+                            config.priceOf(label: pass.priceLabel),
+                            style: textTheme.titleMedium,
+                          ),
                         ],
                       ),
                     ),
@@ -174,7 +182,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   onPressed: _hasSelection ? () => _pay(state) : null,
                   child: Text(
                     _hasSelection
-                        ? 'Pay ${config.priceLabel}'
+                        ? 'Pay ${config.priceOf(label: _pack?.priceLabel ?? _pass?.priceLabel)}'
                         : 'Choose a pack or pass',
                   ),
                 ),

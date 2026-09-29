@@ -13,6 +13,20 @@ final playbackRouteObserver = RouteObserver<ModalRoute<dynamic>>();
 /// is clearly watching avoids spending data on episodes they swipe past.
 const _preloadAfter = Duration(seconds: 10);
 
+/// What a page of the feed has to show.
+class FeedItem {
+  const FeedItem({this.episode, this.player, this.loadFailed = false});
+
+  /// Null until the episode's details have loaded.
+  final Episode? episode;
+
+  /// Null while locked, loading, or not yet needed.
+  final VideoPlayerController? player;
+
+  /// The episode's details could not be fetched (e.g. offline).
+  final bool loadFailed;
+}
+
 /// Controls an [EpisodeFeed] from outside (buttons in overlays and sheets).
 class EpisodeFeedController {
   _EpisodeFeedState? _state;
@@ -27,7 +41,7 @@ class EpisodeFeedController {
   /// Re-checks the current item, e.g. after it was unlocked.
   void refreshCurrent() => _state?._activate(index);
 
-  /// Drops a failed player and loads it again.
+  /// Drops a failed item and loads it again.
   void retry(int index) => _state?._retry(index);
 }
 
@@ -37,7 +51,8 @@ class EpisodeFeedController {
 class EpisodeFeed extends StatefulWidget {
   const EpisodeFeed({
     super.key,
-    required this.episodes,
+    required this.itemCount,
+    required this.loadEpisode,
     required this.itemBuilder,
     this.controller,
     this.initialIndex = 0,
@@ -50,14 +65,14 @@ class EpisodeFeed extends StatefulWidget {
     this.onFinishedLast,
   });
 
-  final List<Episode> episodes;
+  final int itemCount;
 
-  /// Builds one page. [player] is null while locked or not yet loaded.
-  final Widget Function(
-    BuildContext context,
-    int index,
-    VideoPlayerController? player,
-  )
+  /// Fetches an episode with its video link. Called again after an unlock,
+  /// since the link only becomes available then.
+  final Future<Episode> Function(int index) loadEpisode;
+
+  /// Builds one page.
+  final Widget Function(BuildContext context, int index, FeedItem item)
   itemBuilder;
 
   final EpisodeFeedController? controller;
@@ -98,6 +113,10 @@ class _EpisodeFeedState extends State<EpisodeFeed> with RouteAware {
   late final PageController _pages;
   late final PlayerPool _pool;
   late int _index;
+
+  /// Episodes fetched so far, with their video links when watchable.
+  final Map<int, Episode> _episodes = {};
+  final Set<int> _failed = {};
   int? _pendingSeekIndex;
   Duration? _pendingSeek;
 
@@ -123,7 +142,7 @@ class _EpisodeFeedState extends State<EpisodeFeed> with RouteAware {
     _pages = PageController(initialPage: widget.initialIndex);
     final appState = AppStateScope.read(context);
     _pool = PlayerPool(
-      create: (i) => appState.createVideoController(widget.episodes[i]),
+      create: (i) => appState.createVideoController(_episodes[i]!),
       onCreated: (i, player) => applyDataSaver(
         player,
         enabled: appState.dataSaver,
@@ -201,13 +220,30 @@ class _EpisodeFeedState extends State<EpisodeFeed> with RouteAware {
 
   void _retry(int index) {
     _pool.reset(index);
+    _episodes.remove(index);
+    _failed.remove(index);
     if (index == _index) _activate(index);
+  }
+
+  /// Makes sure [index] has its details and, if watchable, its video link.
+  /// Returns false if they could not be fetched.
+  Future<bool> _ensureEpisode(int index) async {
+    final known = _episodes[index];
+    if (known != null && known.isPlayable) return true;
+    try {
+      _episodes[index] = await widget.loadEpisode(index);
+      _failed.remove(index);
+      return true;
+    } on Object {
+      _failed.add(index);
+      return false;
+    }
   }
 
   bool _locked(int index) => widget.isLocked?.call(index) ?? false;
 
   Duration _length(int index, VideoPlayerValue value) {
-    final endsAt = widget.episodes[index].endsAt;
+    final endsAt = _episodes[index]?.endsAt;
     if (endsAt == null || value.duration == Duration.zero) {
       return value.duration;
     }
@@ -239,6 +275,18 @@ class _EpisodeFeedState extends State<EpisodeFeed> with RouteAware {
     }
     if (!widget.active) return;
 
+    if (!await _ensureEpisode(index)) {
+      if (mounted) setState(() {});
+      return;
+    }
+    if (!mounted || token != _activation) return;
+    if (!_episodes[index]!.isPlayable) {
+      // The server still considers it locked (e.g. unlocked on another
+      // phone that has not synced); show it as locked.
+      setState(() {});
+      return;
+    }
+
     final player = _pool.obtain(index);
     player.addListener(_onTick);
     _listening = player;
@@ -266,12 +314,12 @@ class _EpisodeFeedState extends State<EpisodeFeed> with RouteAware {
     final length = _length(index, value);
 
     final next = index + 1;
-    if (next < widget.episodes.length &&
+    if (next < widget.itemCount &&
         _pool[next] == null &&
+        !_preloading.contains(next) &&
         !_locked(next) &&
         value.position >= _preloadAfter) {
-      _pool.obtain(next);
-      setState(() {});
+      _preload(next);
     }
 
     final now = DateTime.now();
@@ -287,7 +335,7 @@ class _EpisodeFeedState extends State<EpisodeFeed> with RouteAware {
       _finishedCurrent = true;
       player.pause();
       widget.onProgress?.call(index, length, length, leaving: true);
-      if (next < widget.episodes.length) {
+      if (next < widget.itemCount) {
         _pages.nextPage(
           duration: const Duration(milliseconds: 400),
           curve: Curves.easeOutCubic,
@@ -295,6 +343,20 @@ class _EpisodeFeedState extends State<EpisodeFeed> with RouteAware {
       } else {
         widget.onFinishedLast?.call();
       }
+    }
+  }
+
+  final Set<int> _preloading = {};
+
+  Future<void> _preload(int index) async {
+    _preloading.add(index);
+    final ok = await _ensureEpisode(index);
+    _preloading.remove(index);
+    if (!mounted || !ok || !_episodes[index]!.isPlayable) return;
+    // Still wanted: the viewer has not moved away in the meantime.
+    if (index == _index + 1 && _pool[index] == null) {
+      _pool.obtain(index);
+      setState(() {});
     }
   }
 
@@ -316,12 +378,16 @@ class _EpisodeFeedState extends State<EpisodeFeed> with RouteAware {
     return PageView.builder(
       controller: _pages,
       scrollDirection: Axis.vertical,
-      itemCount: widget.episodes.length,
+      itemCount: widget.itemCount,
       onPageChanged: _activate,
       itemBuilder: (context, index) => widget.itemBuilder(
         context,
         index,
-        _locked(index) ? null : _pool[index],
+        FeedItem(
+          episode: _episodes[index],
+          player: _locked(index) ? null : _pool[index],
+          loadFailed: _failed.contains(index),
+        ),
       ),
     );
   }

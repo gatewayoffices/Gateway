@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../data/models.dart';
-import '../data/sample_data.dart';
 import '../state/app_state.dart';
 import '../theme/palava_colors.dart';
 import '../theme/palava_theme.dart';
@@ -23,7 +22,8 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = AppStateScope.of(context);
-    final featured = SampleData.seriesById(SampleData.featuredSeriesId);
+    final featured = state.catalog.featured;
+    final continueWatching = state.continueWatching;
 
     return SafeArea(
       bottom: false,
@@ -71,25 +71,29 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          SliverToBoxAdapter(child: _FeaturedHero(series: featured)),
-          const SliverToBoxAdapter(child: SectionHeader('Continue watching')),
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 214,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: state.continueWatching.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, i) =>
-                    _ContinueCard(item: state.continueWatching[i]),
+          if (featured != null)
+            SliverToBoxAdapter(child: _FeaturedHero(series: featured)),
+          if (continueWatching.isNotEmpty) ...[
+            const SliverToBoxAdapter(child: SectionHeader('Continue watching')),
+            SliverToBoxAdapter(
+              child: SizedBox(
+                height: 214,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: continueWatching.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 12),
+                  itemBuilder: (context, i) =>
+                      _ContinueCard(item: continueWatching[i]),
+                ),
               ),
             ),
-          ),
-          for (final row in state.config.homeRows) ...[
-            SliverToBoxAdapter(child: SectionHeader(row.title)),
-            SliverToBoxAdapter(child: _SeriesRow(row: row)),
           ],
+          for (final row in state.config.homeRows)
+            if (state.catalog.seriesFor(row.seriesIds).isNotEmpty) ...[
+              SliverToBoxAdapter(child: SectionHeader(row.title)),
+              SliverToBoxAdapter(child: _SeriesRow(row: row)),
+            ],
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
         ],
       ),
@@ -185,7 +189,7 @@ class _ContinueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final series = SampleData.seriesById(item.seriesId);
+    final series = AppStateScope.of(context).catalog.seriesById(item.seriesId)!;
     return SizedBox(
       width: 124,
       child: InkWell(
@@ -232,15 +236,17 @@ class _SeriesRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rowSeries = AppStateScope.of(context).catalog
+        .seriesFor(row.seriesIds);
     return SizedBox(
       height: 200,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        itemCount: row.seriesIds.length,
+        itemCount: rowSeries.length,
         separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (context, i) {
-          final series = SampleData.seriesById(row.seriesIds[i]);
+          final series = rowSeries[i];
           return SizedBox(
             width: 124,
             child: InkWell(
@@ -304,7 +310,7 @@ class _SeriesSearch extends SearchDelegate<Series?> {
 
   Widget _results(BuildContext context) {
     final q = query.trim().toLowerCase();
-    final matches = SampleData.series.where(
+    final matches = AppStateScope.read(context).catalog.series.where(
       (s) =>
           q.isEmpty ||
           s.title.toLowerCase().contains(q) ||

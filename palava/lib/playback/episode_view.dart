@@ -11,6 +11,7 @@ class EpisodeVideo extends StatelessWidget {
     required this.controller,
     required this.showSubtitles,
     required this.onRetry,
+    this.loadFailed = false,
     this.placeholder,
     this.subtitleBottomPadding = 180,
   });
@@ -18,6 +19,9 @@ class EpisodeVideo extends StatelessWidget {
   final VideoPlayerController? controller;
   final bool showSubtitles;
   final VoidCallback onRetry;
+
+  /// The episode's details could not be fetched; offer to try again.
+  final bool loadFailed;
 
   /// Shown behind the video while it loads (usually the poster).
   final Widget? placeholder;
@@ -30,6 +34,7 @@ class EpisodeVideo extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         ?placeholder,
+        if (loadFailed && controller == null) _ErrorMessage(onRetry: onRetry),
         if (controller != null)
           ValueListenableBuilder<VideoPlayerValue>(
             valueListenable: controller,

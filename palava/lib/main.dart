@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'backend/backend.dart';
+import 'backend/backend_config.dart';
+import 'backend/sample_backend.dart';
+import 'backend/supabase_backend.dart';
 import 'playback/episode_feed.dart';
+import 'screens/main_shell.dart';
 import 'screens/welcome_screen.dart';
 import 'state/app_state.dart';
 import 'theme/palava_colors.dart';
 import 'theme/palava_theme.dart';
+import 'widgets/common.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,7 +26,16 @@ Future<void> main() async {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
-  runApp(PalavaApp(state: AppState(prefs: prefs)));
+
+  // Supabase when env.json provides its details, otherwise the sample data.
+  const config = BackendConfig.fromEnvironment;
+  final Backend backend = config.isConfigured
+      ? await SupabaseBackend.connect(config, prefs)
+      : SampleBackend();
+
+  final state = AppState(backend: backend, prefs: prefs);
+  runApp(PalavaApp(state: state));
+  await state.start();
 }
 
 class PalavaApp extends StatelessWidget {
@@ -37,7 +52,79 @@ class PalavaApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: buildPalavaTheme(),
         navigatorObservers: [playbackRouteObserver],
-        home: const WelcomeScreen(),
+        home: const _Root(),
+      ),
+    );
+  }
+}
+
+/// Picks the first screen: loading, Welcome, or the app itself.
+class _Root extends StatelessWidget {
+  const _Root();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppStateScope.of(context);
+    return switch (state.phase) {
+      AppPhase.loading => const _Loading(),
+      AppPhase.failed => _LoadFailed(onRetry: state.refreshCatalog),
+      AppPhase.ready =>
+        state.enteredApp ? const MainShell() : const WelcomeScreen(),
+    };
+  }
+}
+
+class _Loading extends StatelessWidget {
+  const _Loading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PalavaLogo(size: 40),
+            SizedBox(height: 24),
+            CircularProgressIndicator(color: PalavaColors.ember),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadFailed extends StatelessWidget {
+  const _LoadFailed({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const PalavaLogo(size: 40),
+                const SizedBox(height: 24),
+                Text(
+                  const BackendException(BackendErrorKind.offline).message,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: onRetry,
+                  child: const Text('Try again'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

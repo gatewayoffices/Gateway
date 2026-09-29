@@ -10,8 +10,8 @@ The project brief is in [CLAUDE.md](CLAUDE.md).
 | 1. Project setup (Flutter app, Git, folders, theme) | Done |
 | 2. Seven screens with sample data | Done |
 | 3. Video player | Done |
-| 4. Backend (Supabase) | Next |
-| 5. Admin panel | Later |
+| 4. Backend (Supabase) | Built; needs your Supabase project |
+| 5. Admin panel | Next |
 | 6. Monetization and payments | Later |
 | 7. Downloads, data saver, notifications | Later |
 
@@ -145,6 +145,10 @@ From the `palava` folder in the terminal:
 flutter run
 ```
 
+Once Supabase is connected (see "Connecting the app to Supabase" below), add
+`--dart-define-from-file=env.json` to every `flutter run`. Without it the app
+uses the built-in sample data.
+
 The first run takes 5–10 minutes while it downloads build tools. After that it
 takes under a minute. The app opens on your phone by itself, and it stays
 installed after you unplug.
@@ -218,6 +222,109 @@ Tell Claude anything that looks wrong, feels slow, or reads badly.
 
 ---
 
+## Connecting the app to Supabase (Milestone 4)
+
+Until these steps are done, the app runs on its built-in sample data, exactly
+as before. Do them in order; each takes a few minutes.
+
+**Safety rule:** Supabase shows two kinds of keys. The **publishable** key
+(sometimes labelled **anon** or **public**) goes in the app. The **secret** key
+(labelled **secret** or **service_role**) must never be put in the app, in
+`env.json`, in Git, or sent in a chat.
+
+### Step A: Create the Supabase project
+
+1. Go to <https://supabase.com> and click **Start your project**. Sign in with
+   your GitHub account.
+2. Click **New project**. If asked, create an organization (any name, **Free**
+   plan).
+3. Fill in:
+   - **Name:** `palava`
+   - **Database password:** click **Generate a password**, then save it in a
+     password manager. The app never needs it, but you may later.
+   - **Region:** **West EU (London)**: closest to both Liberia and the UK/US
+     diaspora.
+4. Click **Create new project** and wait a minute or two until it is ready.
+
+### Step B: Create the database tables
+
+1. First get the latest code: in PowerShell, from the `palava` folder, run
+   `git pull`.
+2. In Supabase, click **SQL Editor** in the left menu, then **New query**.
+3. On your computer, open
+   `Documents\Gateway\palava\supabase\migrations\20260929000000_initial_schema.sql`
+   with Notepad (right-click > Open with > Notepad). Press **Ctrl+A**, then
+   **Ctrl+C**.
+4. Click in the Supabase query box, press **Ctrl+V**, then click **Run**. You
+   should see "Success. No rows returned".
+5. Click **New query** again and do the same with
+   `Documents\Gateway\palava\supabase\seed.sql`. This loads the sample series.
+6. Check: click **Table Editor** in the left menu. You should see tables such
+   as `series` (8 rows) and `episodes`.
+
+### Step C: Connect the app
+
+1. In Supabase, open **Project Settings** (gear icon) > **API Keys** (or **Data
+   API**). Copy the **Project URL** and the **publishable / anon** key.
+2. In PowerShell, from the `palava` folder:
+   ```
+   copy env.example.json env.json
+   notepad env.json
+   ```
+3. Replace the two example values with your Project URL and publishable key,
+   keeping the quote marks. Save and close Notepad. (`env.json` is kept out of
+   Git automatically.)
+4. Run the app with the new settings:
+   ```
+   flutter run -d 5A210DLCQ002B1 --dart-define-from-file=env.json
+   ```
+   From now on, always add `--dart-define-from-file=env.json`.
+
+### Step D: Turn on phone sign-in
+
+Phone codes are sent by text message through an SMS company that Supabase
+connects to (for example **Twilio**). Texts to Liberia cost money per
+message, so first set up free test numbers:
+
+1. In Supabase: **Authentication** > **Sign In / Providers** > **Phone**, and
+   turn it on.
+2. Under **Test Phone Numbers and OTPs**, add for example
+   `231770000001=123456` and save. That number then signs in with the code
+   `123456`, and no text is sent.
+3. If Supabase will not save without SMS company details, stop and tell
+   Claude: we will pick the SMS company together (Twilio has a free trial).
+
+### Step E (later): Google and Apple sign-in
+
+Google needs a Google Cloud account and Apple needs an Apple Developer
+account (paid, yearly). Claude will walk you through these when you are
+ready. Until then the app shows only phone sign-in.
+
+## What to check on your phone (Milestone 4: backend)
+
+With `env.json` in place (Step C):
+
+1. The app opens with a short loading screen, then Welcome. The series are
+   now coming from Supabase.
+2. **Browse as a guest**, open a series and tap a locked episode (9 or
+   later): the sheet now says **Sign in to unlock**.
+3. Sign in: enter `770000001` after +231, tap **Send me a code**, enter
+   `123456`. You land on Home.
+4. **Profile** shows `+231 ** *** 001` and a Wallet with **45 coins** (the
+   welcome coins, set in the `app_settings` table).
+5. Unlock episode 9 with 30 coins. In Supabase **Table Editor** >
+   `wallets`, your balance is now 15. Try unlocking another: the sheet says
+   you do not have enough coins.
+6. Add a series to **My List**, watch part of an episode, then close the app
+   completely and open it again: you are still signed in, My List and
+   Continue watching are still there.
+7. **Log out**, then sign in again with the same number: everything comes
+   back from the server.
+8. Try changing something in Supabase, for example in **Table Editor** >
+   `app_settings` set `unlock_cost_coins` to 20, or rename a `home_rows`
+   title. Close and reopen the app: the change shows up without a new app
+   build.
+
 ## For developers
 
 - `lib/theme/`: colours, fonts and the app theme (brief: "fireside").
@@ -232,6 +339,15 @@ Tell Claude anything that looks wrong, feels slow, or reads badly.
   saving). `video_controllers.dart` creates players, applies Data saver
   (`AppConfig.dataSaverMaxBitrate`) and holds at most two players at a time.
   `watch_history.dart` stores where the viewer stopped.
+- `lib/backend/`: `Backend` is everything the app asks of a server.
+  `SampleBackend` fakes it on the phone (no `env.json`, and in tests);
+  `SupabaseBackend` talks to Supabase. `AppState` holds the viewer's copy and
+  never changes coins itself: unlocks go through database functions.
+- `supabase/migrations/`: the database schema with row level security.
+  `supabase/seed.sql`: sample content. `supabase/tests/run_tests.sh` checks the
+  security rules on a plain PostgreSQL; `supabase/tests/run_api_tests.sh`
+  runs `test/supabase_backend_test.dart` against PostgREST (the server
+  Supabase uses).
 - Sample episodes use Google's public HLS test streams and stop at 75 seconds
   (`Episode.endsAt`); sample WebVTT subtitles come from `sample_data.dart`.
 - `lib/screens/`: one file per screen. `lib/widgets/`: shared pieces.
