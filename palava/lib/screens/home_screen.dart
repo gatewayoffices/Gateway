@@ -7,6 +7,7 @@ import '../theme/palava_colors.dart';
 import '../theme/palava_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/poster_art.dart';
+import 'player_screen.dart';
 import 'series_screen.dart';
 import 'wallet_screen.dart';
 
@@ -17,9 +18,7 @@ void openSeries(BuildContext context, Series series) {
 }
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, required this.onOpenForYou});
-
-  final VoidCallback onOpenForYou;
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -72,9 +71,7 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          SliverToBoxAdapter(
-            child: _FeaturedHero(series: featured, onWatch: onOpenForYou),
-          ),
+          SliverToBoxAdapter(child: _FeaturedHero(series: featured)),
           const SliverToBoxAdapter(child: SectionHeader('Continue watching')),
           SliverToBoxAdapter(
             child: SizedBox(
@@ -82,10 +79,10 @@ class HomeScreen extends StatelessWidget {
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: SampleData.continueWatching.length,
+                itemCount: state.continueWatching.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
                 itemBuilder: (context, i) =>
-                    _ContinueCard(item: SampleData.continueWatching[i]),
+                    _ContinueCard(item: state.continueWatching[i]),
               ),
             ),
           ),
@@ -101,10 +98,9 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _FeaturedHero extends StatelessWidget {
-  const _FeaturedHero({required this.series, required this.onWatch});
+  const _FeaturedHero({required this.series});
 
   final Series series;
-  final VoidCallback onWatch;
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +151,7 @@ class _FeaturedHero extends StatelessWidget {
                     children: [
                       Expanded(
                         child: FilledButton.icon(
-                          onPressed: onWatch,
+                          onPressed: () => openPlayer(context, series),
                           icon: const Icon(Icons.play_arrow),
                           label: const Text('Watch now'),
                         ),
@@ -194,7 +190,11 @@ class _ContinueCard extends StatelessWidget {
       width: 124,
       child: InkWell(
         borderRadius: BorderRadius.circular(PalavaRadius.small),
-        onTap: () => openSeries(context, series),
+        // Resume from real history, or start the sample row's episode.
+        onTap: () =>
+            AppStateScope.read(context).history.lastFor(series.id) != null
+            ? openPlayer(context, series)
+            : openPlayer(context, series, episode: item.episodeNumber),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

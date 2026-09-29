@@ -9,15 +9,18 @@ The project brief is in [CLAUDE.md](CLAUDE.md).
 |---|---|
 | 1. Project setup (Flutter app, Git, folders, theme) | Done |
 | 2. Seven screens with sample data | Done |
-| 3. Video player | Next |
-| 4. Backend (Supabase) | Later |
+| 3. Video player | Done |
+| 4. Backend (Supabase) | Next |
 | 5. Admin panel | Later |
 | 6. Monetization and payments | Later |
 | 7. Downloads, data saver, notifications | Later |
 
-Everything you see is sample data. Buttons that need a later milestone (playing
-video, real payments, downloads, sharing) show a short message saying so. Coins
-you "buy" in the Wallet are pretend: no money moves.
+Everything you see is sample data. Videos are free public test clips from
+Google (not African dramas, and landscape rather than vertical); they only prove
+the player works. Each sample episode stops after 75 seconds so you can see the
+next one start by itself. Buttons that need a later milestone (real payments,
+downloads, sharing) show a short message saying so. Coins you "buy" in the
+Wallet are pretend: no money moves.
 
 ---
 
@@ -162,7 +165,7 @@ press the green **Run** triangle.
 **Getting new versions later:** from the `palava` folder run `git pull`, then
 `flutter run` again.
 
-## What to check on your phone (Milestone 2)
+## What to check on your phone (Milestone 2: screens)
 
 1. **Welcome:** switch language, pick some genres, enter a phone number after
    +231 and tap **Send me a code** (sample mode signs you in straight away), or
@@ -182,6 +185,35 @@ press the green **Run** triangle.
    language picker, and Sign in / Log out.
 8. **My List:** shows what you saved from the feed or series pages.
 
+## What to check on your phone (Milestone 3: video player)
+
+Use WiFi or mobile data; the videos stream from the internet.
+
+1. **Play:** open any series and tap **Play episode 1**. The video fills the
+   screen and starts by itself. Tap the video to pause, tap again to play.
+2. **Subtitles:** lines appear near the bottom (sample text, not matched to the
+   clip). Tap the **CC** button at the top right to turn them off and on. The
+   same switch is in **Profile > Subtitles**.
+3. **Swipe:** swipe up for the next episode, down for the previous one.
+4. **Autoplay:** wait 75 seconds (or drag the progress bar near the end). The
+   next episode slides in and plays by itself.
+5. **Jump:** drag or tap the thin orange bar at the bottom to move within the
+   episode.
+6. **Locked episodes:** keep going past episode 8 (or tap **Episodes** at the
+   top right and pick 9). The unlock sheet appears. Unlock with coins or a
+   short ad, and it plays. Turn on **Auto-unlock** in that sheet and the next
+   locked episode unlocks by itself while you have coins.
+7. **Resume:** watch part of an episode, go back, and close the app completely.
+   Open it again: **Home > Continue watching** now shows that series with its
+   progress bar, and the series button says **Continue episode N**. Tapping
+   either picks up where you stopped.
+8. **For You:** the feed now plays video. Swipe between series. Switching to
+   another tab pauses it. **Watch all episodes** continues the same episode in
+   the full player from the same moment.
+9. **Data saver** (on by default, in Profile): plays a lower quality to use less
+   data. You may notice the picture is softer; that is expected.
+10. **Leaving the app** (home button) pauses the video; coming back resumes it.
+
 Tell Claude anything that looks wrong, feels slow, or reads badly.
 
 ---
@@ -192,7 +224,16 @@ Tell Claude anything that looks wrong, feels slow, or reads badly.
 - `lib/data/`: data models and `sample_data.dart`. Business values (free
   episode count, unlock cost, ad limit, coin packs, passes, home rows) live in
   `AppConfig`, which will come from Supabase in Milestone 4.
-- `lib/state/app_state.dart`: in-memory state (wallet, My List, settings).
+- `lib/state/app_state.dart`: app state (wallet, My List, settings). Watch
+  history, Data saver and Subtitles are saved on the phone.
+- `lib/playback/`: the video player. `episode_feed.dart` is the vertical
+  swipe list used by both For You and the series player (autoplay, preload
+  only the next item after 10 seconds, pause when covered, resume, progress
+  saving). `video_controllers.dart` creates players, applies Data saver
+  (`AppConfig.dataSaverMaxBitrate`) and holds at most two players at a time.
+  `watch_history.dart` stores where the viewer stopped.
+- Sample episodes use Google's public HLS test streams and stop at 75 seconds
+  (`Episode.endsAt`); sample WebVTT subtitles come from `sample_data.dart`.
 - `lib/screens/`: one file per screen. `lib/widgets/`: shared pieces.
 - `assets/fonts/`: Fraunces and DM Sans bundled (OFL licensed) so the app never
   downloads fonts over mobile data.

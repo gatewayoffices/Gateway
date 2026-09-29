@@ -5,9 +5,13 @@ import 'package:palava/data/sample_data.dart';
 import 'package:palava/main.dart';
 import 'package:palava/screens/series_screen.dart';
 import 'package:palava/state/app_state.dart';
+import 'package:video_player_platform_interface/video_player_platform_interface.dart';
+
+import 'fake_video_platform.dart';
 
 void main() {
   setUp(() {
+    VideoPlayerPlatform.instance = FakeVideoPlatform();
     // A typical small Android phone.
     final view =
         TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
@@ -60,6 +64,9 @@ void main() {
     );
     expect(find.text('MTN Mobile Money'), findsOneWidget);
     expect(find.text('[PRICE]'), findsWidgets);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('locked episode unlocks with coins', (tester) async {
@@ -87,5 +94,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(state.isUnlocked(series.id, 9), isTrue);
     expect(state.coinBalance, before - 30);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
   });
 }

@@ -1,51 +1,78 @@
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 
 import '../data/models.dart';
 import '../data/sample_data.dart';
+import '../playback/episode_feed.dart';
+import '../playback/episode_view.dart';
 import '../state/app_state.dart';
 import '../theme/palava_colors.dart';
 import '../theme/palava_theme.dart';
 import '../widgets/common.dart';
 import '../widgets/episode_grid.dart';
 import '../widgets/poster_art.dart';
+import 'player_screen.dart';
 import 'series_screen.dart';
 
-/// Full-screen vertical feed. Swipe up for the next series.
-///
-/// The video player itself is Milestone 3; for now each page shows the
-/// series poster where the video will play.
-class ForYouScreen extends StatelessWidget {
+/// Full-screen vertical feed of first episodes. Swipe up for the next series.
+class ForYouScreen extends StatefulWidget {
   const ForYouScreen({super.key, required this.isActive});
 
-  /// Whether this tab is on screen. Milestone 3 uses it to pause playback.
+  /// Whether this tab is on screen. Nothing plays or loads while it is not.
   final bool isActive;
 
   @override
+  State<ForYouScreen> createState() => _ForYouScreenState();
+}
+
+class _ForYouScreenState extends State<ForYouScreen> {
+  final _feed = EpisodeFeedController();
+  final _series = SampleData.forYouSeriesIds
+      .map(SampleData.seriesById)
+      .toList();
+  late final _episodes = [
+    for (final series in _series) SampleData.episodesFor(series).first,
+  ];
+
+  @override
   Widget build(BuildContext context) {
-    final seriesList = SampleData.forYouSeriesIds
-        .map(SampleData.seriesById)
-        .toList();
-    return PageView.builder(
-      scrollDirection: Axis.vertical,
-      itemCount: seriesList.length,
-      itemBuilder: (context, i) =>
-          _FeedPage(series: seriesList[i], progress: 0.2 + 0.1 * (i % 5)),
+    final showSubtitles = AppStateScope.of(context).subtitles;
+    return EpisodeFeed(
+      controller: _feed,
+      episodes: _episodes,
+      active: widget.isActive,
+      itemBuilder: (context, index, player) => _FeedPage(
+        series: _series[index],
+        episode: _episodes[index],
+        player: player,
+        showSubtitles: showSubtitles,
+        onRetry: () => _feed.retry(index),
+      ),
     );
   }
 }
 
 class _FeedPage extends StatelessWidget {
-  const _FeedPage({required this.series, required this.progress});
+  const _FeedPage({
+    required this.series,
+    required this.episode,
+    required this.player,
+    required this.showSubtitles,
+    required this.onRetry,
+  });
 
   final Series series;
-  final double progress;
+  final Episode episode;
+  final VideoPlayerController? player;
+  final bool showSubtitles;
+  final VoidCallback onRetry;
 
   void _showEpisodes(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (context) => DraggableScrollableSheet(
+      builder: (sheetContext) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.6,
         maxChildSize: 0.9,
@@ -60,11 +87,23 @@ class _FeedPage extends StatelessWidget {
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
             ),
-            EpisodeGrid(series: series),
+            EpisodeGrid(
+              series: series,
+              onPlay: (number) {
+                Navigator.of(sheetContext).pop();
+                openPlayer(context, series, episode: number);
+              },
+            ),
           ],
         ),
       ),
     );
+  }
+
+  void _watchAll(BuildContext context) {
+    // Carry on from the same moment in the full player.
+    final position = player?.value.position;
+    openPlayer(context, series, episode: 1, position: position);
   }
 
   @override
@@ -77,23 +116,27 @@ class _FeedPage extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        PosterArt(series: series, showTitle: false, borderRadius: 0),
-        // Placeholder for the video.
-        const Center(
-          child: Icon(
-            Icons.play_circle_outline,
-            size: 72,
-            color: Color(0x99F6EEE2),
+        EpisodeVideo(
+          controller: player,
+          showSubtitles: showSubtitles,
+          onRetry: onRetry,
+          placeholder: PosterArt(
+            series: series,
+            showTitle: false,
+            borderRadius: 0,
           ),
+          subtitleBottomPadding: 230,
         ),
         // Darken the bottom so text stays readable over any video.
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Colors.transparent, Color(0xD91A120D)],
-              stops: [0.5, 1],
+        const IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Color(0xD91A120D)],
+                stops: [0.5, 1],
+              ),
             ),
           ),
         ),
@@ -121,7 +164,17 @@ class _FeedPage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(series.title, style: textTheme.headlineSmall),
+                          GestureDetector(
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => SeriesScreen(series: series),
+                              ),
+                            ),
+                            child: Text(
+                              series.title,
+                              style: textTheme.headlineSmall,
+                            ),
+                          ),
                           const SizedBox(height: 4),
                           Text(
                             'Episode 1 of ${series.episodeCount}  ·  '
@@ -138,11 +191,7 @@ class _FeedPage extends StatelessWidget {
                                 horizontal: 16,
                               ),
                             ),
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => SeriesScreen(series: series),
-                              ),
-                            ),
+                            onPressed: () => _watchAll(context),
                             icon: const Icon(Icons.video_library_outlined),
                             label: const Text('Watch all episodes'),
                           ),
@@ -185,11 +234,16 @@ class _FeedPage extends StatelessWidget {
                 const SizedBox(height: 16),
                 Padding(
                   padding: const EdgeInsets.only(right: 12),
-                  child: ProgressLine(
-                    value: progress,
-                    height: 3,
-                    trackColor: PalavaColors.text.withValues(alpha: 0.2),
-                  ),
+                  child: player == null
+                      ? ProgressLine(
+                          value: 0,
+                          height: 3,
+                          trackColor: PalavaColors.text.withValues(alpha: 0.2),
+                        )
+                      : EpisodeProgressBar(
+                          controller: player!,
+                          endsAt: episode.endsAt,
+                        ),
                 ),
               ],
             ),

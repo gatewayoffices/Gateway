@@ -5,7 +5,6 @@ import '../screens/unlock_sheet.dart';
 import '../state/app_state.dart';
 import '../theme/palava_colors.dart';
 import '../theme/palava_theme.dart';
-import 'common.dart';
 
 /// Grid of episode numbers. Free or unlocked episodes play; locked ones open
 /// the unlock sheet.
@@ -13,11 +12,19 @@ class EpisodeGrid extends StatelessWidget {
   const EpisodeGrid({
     super.key,
     required this.series,
+    required this.onPlay,
+    this.currentEpisode,
     this.shrinkWrap = true,
     this.padding = const EdgeInsets.symmetric(horizontal: 20),
   });
 
   final Series series;
+
+  /// Called with the episode number once it is free or unlocked.
+  final ValueChanged<int> onPlay;
+
+  /// Episode to highlight (the one playing), if any.
+  final int? currentEpisode;
   final bool shrinkWrap;
   final EdgeInsets padding;
 
@@ -30,11 +37,7 @@ class EpisodeGrid extends StatelessWidget {
       );
       if (!didUnlock || !context.mounted) return;
     }
-    showSampleMessage(
-      context,
-      'Episode $episode will play here once the video player is built '
-      '(Milestone 3).',
-    );
+    onPlay(episode);
   }
 
   @override
@@ -53,11 +56,16 @@ class EpisodeGrid extends StatelessWidget {
       itemBuilder: (context, i) {
         final episode = i + 1;
         final unlocked = state.isUnlocked(series.id, episode);
+        final isCurrent = episode == currentEpisode;
         return Material(
-          color: PalavaColors.card,
+          color: isCurrent
+              ? PalavaColors.ember.withValues(alpha: 0.18)
+              : PalavaColors.card,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(PalavaRadius.small),
-            side: const BorderSide(color: PalavaColors.cardBorder),
+            side: BorderSide(
+              color: isCurrent ? PalavaColors.ember : PalavaColors.cardBorder,
+            ),
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(PalavaRadius.small),

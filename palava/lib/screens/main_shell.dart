@@ -24,7 +24,7 @@ class _MainShellState extends State<MainShell> {
       body: IndexedStack(
         index: _index,
         children: [
-          HomeScreen(onOpenForYou: () => _selectTab(1)),
+          const HomeScreen(),
           ForYouScreen(isActive: _index == 1),
           const MyListScreen(),
           const ProfileScreen(),

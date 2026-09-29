@@ -74,6 +74,7 @@ class AppConfig {
     required this.freeEpisodeCount,
     required this.unlockCostCoins,
     required this.freeAdsPerDay,
+    required this.dataSaverMaxBitrate,
     required this.coinPacks,
     required this.passes,
     required this.homeRows,
@@ -83,6 +84,9 @@ class AppConfig {
   final int freeEpisodeCount;
   final int unlockCostCoins;
   final int freeAdsPerDay;
+
+  /// Highest video bitrate (bits per second) played while Data saver is on.
+  final int dataSaverMaxBitrate;
   final List<CoinPack> coinPacks;
   final List<Pass> passes;
   final List<HomeRow> homeRows;
@@ -91,4 +95,29 @@ class AppConfig {
   final String priceLabel;
 
   bool isEpisodeFree(int episodeNumber) => episodeNumber <= freeEpisodeCount;
+}
+
+/// One episode of a series.
+class Episode {
+  const Episode({
+    required this.seriesId,
+    required this.number,
+    required this.videoUrl,
+    this.subtitlesVtt,
+    this.endsAt,
+  });
+
+  final String seriesId;
+  final int number;
+
+  /// HLS stream (.m3u8). Comes from the video host (Mux or Cloudflare Stream)
+  /// once the backend exists.
+  final String videoUrl;
+
+  /// WebVTT subtitles, if the episode has them.
+  final String? subtitlesVtt;
+
+  /// Sample only: treat the episode as finished at this point. The public
+  /// test streams are longer than a real 1–2 minute episode.
+  final Duration? endsAt;
 }

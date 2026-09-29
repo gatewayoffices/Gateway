@@ -11,6 +11,7 @@ class SampleData {
     freeEpisodeCount: 8,
     unlockCostCoins: 30,
     freeAdsPerDay: 3,
+    dataSaverMaxBitrate: 800000,
     priceLabel: '[PRICE]',
     coinPacks: [
       CoinPack(coins: 100),
@@ -184,4 +185,56 @@ class SampleData {
   ];
 
   static Series seriesById(String id) => series.firstWhere((s) => s.id == id);
+
+  /// Free public HLS test streams (Google's Shaka Player demo assets). They
+  /// are landscape and not African dramas; they only prove the player works.
+  static const _testStreams = [
+    'https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8',
+    'https://storage.googleapis.com/shaka-demo-assets/bbb-dark-truths-hls/hls.m3u8',
+    'https://storage.googleapis.com/shaka-demo-assets/apple-advanced-stream-ts/master.m3u8',
+  ];
+
+  /// Every sample episode stops here so autoplay-next can be tried quickly.
+  static const sampleEpisodeLength = Duration(seconds: 75);
+
+  static List<Episode> episodesFor(Series series) => [
+    for (var n = 1; n <= series.episodeCount; n++)
+      Episode(
+        seriesId: series.id,
+        number: n,
+        videoUrl: _testStreams[(n - 1) % _testStreams.length],
+        subtitlesVtt: _sampleSubtitles,
+        endsAt: sampleEpisodeLength,
+      ),
+  ];
+
+  static const _sampleSubtitleLines = [
+    'Where were you last night?',
+    'You don\'t want to know.',
+    'Everybody in this town has a secret.',
+    'Then tell me yours.',
+    'Not here. Not now.',
+    'If Mama finds out...',
+    'She won\'t. Unless you tell her.',
+    'I\'m tired of lying for you.',
+    'Then stop.',
+    'It\'s too late for that.',
+    'Someone is at the door.',
+    'Don\'t open it.',
+  ];
+
+  static final String _sampleSubtitles = () {
+    final buffer = StringBuffer('WEBVTT\n\n');
+    for (var i = 0; i < _sampleSubtitleLines.length; i++) {
+      buffer
+        ..writeln('${_vttTime(i * 6 + 1)} --> ${_vttTime(i * 6 + 5)}')
+        ..writeln(_sampleSubtitleLines[i])
+        ..writeln();
+    }
+    return buffer.toString();
+  }();
+
+  static String _vttTime(int seconds) =>
+      '00:${(seconds ~/ 60).toString().padLeft(2, '0')}:'
+      '${(seconds % 60).toString().padLeft(2, '0')}.000';
 }

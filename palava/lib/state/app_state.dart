@@ -1,7 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/models.dart';
 import '../data/sample_data.dart';
+import '../playback/video_controllers.dart';
+import '../playback/watch_history.dart';
 
 enum AppLanguage { english, french }
 
@@ -12,12 +17,28 @@ extension AppLanguageLabel on AppLanguage {
   };
 }
 
-/// In-memory state for the prototype. Nothing here is saved yet; the backend
-/// (Milestone 4) will store the wallet, My List and watch history.
+/// App state for the prototype. Watch history and playback settings are saved
+/// on the phone; the wallet and My List live in memory until the backend
+/// (Milestone 4) stores them.
 class AppState extends ChangeNotifier {
-  AppState({AppConfig? config}) : config = config ?? SampleData.config;
+  AppState({
+    AppConfig? config,
+    SharedPreferences? prefs,
+    VideoControllerFactory? videoFactory,
+  }) : config = config ?? SampleData.config,
+       _prefs = prefs,
+       history = WatchHistory(prefs),
+       createVideoController = videoFactory ?? createNetworkController,
+       dataSaver = prefs?.getBool(_dataSaverKey) ?? true,
+       subtitles = prefs?.getBool(_subtitlesKey) ?? true;
+
+  static const _dataSaverKey = 'data_saver';
+  static const _subtitlesKey = 'subtitles';
 
   final AppConfig config;
+  final SharedPreferences? _prefs;
+  final WatchHistory history;
+  final VideoControllerFactory createVideoController;
 
   AppLanguage language = AppLanguage.english;
   final Set<String> favouriteGenres = {};
@@ -30,7 +51,8 @@ class AppState extends ChangeNotifier {
   int adsWatchedToday = 0;
   bool autoUnlock = false;
 
-  bool dataSaver = true;
+  bool dataSaver;
+  bool subtitles;
   bool wifiOnlyDownloads = true;
   bool notifications = true;
 
@@ -114,7 +136,38 @@ class AppState extends ChangeNotifier {
 
   void setDataSaver(bool value) {
     dataSaver = value;
+    _prefs?.setBool(_dataSaverKey, value);
     notifyListeners();
+  }
+
+  void setSubtitles(bool value) {
+    subtitles = value;
+    _prefs?.setBool(_subtitlesKey, value);
+    notifyListeners();
+  }
+
+  /// Rows for "Continue watching": real history once the viewer has watched
+  /// something, sample rows before that.
+  List<ContinueWatching> get continueWatching {
+    if (history.isEmpty) return SampleData.continueWatching;
+    return [
+      for (final entry in history.recent)
+        ContinueWatching(
+          seriesId: entry.seriesId,
+          episodeNumber: entry.episodeNumber,
+          progress: entry.progress,
+        ),
+    ];
+  }
+
+  /// Saves where the viewer is. Playback calls this every few seconds with
+  /// [refreshScreens] false, and once with true when the viewer moves on, so
+  /// screens are not rebuilt constantly during playback.
+  void recordProgress(WatchEntry entry, {bool refreshScreens = false}) {
+    history.record(entry);
+    // Deferred: this can be called while a screen is closing, when widgets
+    // may not be rebuilt.
+    if (refreshScreens) scheduleMicrotask(notifyListeners);
   }
 
   void setWifiOnlyDownloads(bool value) {
@@ -143,6 +196,13 @@ class AppStateScope extends InheritedNotifier<AppState> {
 
   static AppState of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppStateScope>();
+    assert(scope != null, 'AppStateScope is missing above this widget');
+    return scope!.notifier!;
+  }
+
+  /// Like [of], but does not rebuild the caller on changes. Safe in initState.
+  static AppState read(BuildContext context) {
+    final scope = context.getInheritedWidgetOfExactType<AppStateScope>();
     assert(scope != null, 'AppStateScope is missing above this widget');
     return scope!.notifier!;
   }

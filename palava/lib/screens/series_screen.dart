@@ -6,6 +6,7 @@ import '../theme/palava_colors.dart';
 import '../widgets/common.dart';
 import '../widgets/episode_grid.dart';
 import '../widgets/poster_art.dart';
+import 'player_screen.dart';
 
 class SeriesScreen extends StatelessWidget {
   const SeriesScreen({super.key, required this.series});
@@ -17,6 +18,7 @@ class SeriesScreen extends StatelessWidget {
     final state = AppStateScope.of(context);
     final textTheme = Theme.of(context).textTheme;
     final inMyList = state.myList.contains(series.id);
+    final lastWatched = state.history.lastFor(series.id);
     final screenWidth = MediaQuery.sizeOf(context).width;
 
     return Scaffold(
@@ -70,13 +72,13 @@ class SeriesScreen extends StatelessWidget {
                   Text(series.synopsis, style: textTheme.bodyMedium),
                   const SizedBox(height: 20),
                   FilledButton.icon(
-                    onPressed: () => showSampleMessage(
-                      context,
-                      'Episode 1 will play here once the video player is '
-                      'built (Milestone 3).',
-                    ),
+                    onPressed: () => openPlayer(context, series),
                     icon: const Icon(Icons.play_arrow),
-                    label: const Text('Play episode 1'),
+                    label: Text(
+                      lastWatched == null
+                          ? 'Play episode 1'
+                          : 'Continue episode ${lastWatched.episodeNumber}',
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -123,7 +125,14 @@ class SeriesScreen extends StatelessWidget {
               ),
             ),
           ),
-          SliverToBoxAdapter(child: EpisodeGrid(series: series)),
+          SliverToBoxAdapter(
+            child: EpisodeGrid(
+              series: series,
+              currentEpisode: lastWatched?.episodeNumber,
+              onPlay: (episode) =>
+                  openPlayer(context, series, episode: episode),
+            ),
+          ),
           const SliverToBoxAdapter(child: SizedBox(height: 40)),
         ],
       ),

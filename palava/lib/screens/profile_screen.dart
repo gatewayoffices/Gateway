@@ -117,6 +117,12 @@ class ProfileScreen extends StatelessWidget {
                 onChanged: state.setDataSaver,
               ),
               _SwitchTile(
+                icon: Icons.closed_caption_outlined,
+                title: 'Subtitles',
+                value: state.subtitles,
+                onChanged: state.setSubtitles,
+              ),
+              _SwitchTile(
                 icon: Icons.wifi,
                 title: 'Download on WiFi only',
                 value: state.wifiOnlyDownloads,

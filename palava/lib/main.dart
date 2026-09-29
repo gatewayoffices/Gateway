@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'playback/episode_feed.dart';
 import 'screens/welcome_screen.dart';
 import 'state/app_state.dart';
 import 'theme/palava_colors.dart';
 import 'theme/palava_theme.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -17,7 +20,7 @@ void main() {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
-  runApp(PalavaApp(state: AppState()));
+  runApp(PalavaApp(state: AppState(prefs: prefs)));
 }
 
 class PalavaApp extends StatelessWidget {
@@ -33,6 +36,7 @@ class PalavaApp extends StatelessWidget {
         title: 'Palava',
         debugShowCheckedModeBanner: false,
         theme: buildPalavaTheme(),
+        navigatorObservers: [playbackRouteObserver],
         home: const WelcomeScreen(),
       ),
     );
