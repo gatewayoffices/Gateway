@@ -15,6 +15,7 @@ PG_URI=${PG_URI:-"postgres://authenticator@localhost/palava_api"}
 POSTGREST=${POSTGREST:-postgrest}
 SECRET="palava-local-test-secret-at-least-32-chars"
 USER_ID="00000000-0000-0000-0000-0000000000c1"
+ADMIN_ID="00000000-0000-0000-0000-0000000000c2"
 WORK=$(mktemp -d)
 trap 'kill $(jobs -p) 2>/dev/null || true; rm -rf "$WORK"' EXIT
 
@@ -25,6 +26,8 @@ run -f tests/supabase_shim.sql
 for migration in migrations/*.sql; do run -f "$migration"; done
 run -f seed.sql
 run -c "insert into auth.users (id, phone) values ('$USER_ID', '231770000009');"
+run -c "insert into auth.users (id, email) values ('$ADMIN_ID', 'admin@example.com');"
+run -c "insert into public.admins (user_id) values ('$ADMIN_ID');"
 
 sign() {
   python3 - "$SECRET" "$1" <<'PY'
@@ -40,6 +43,7 @@ PY
 }
 ANON_KEY=$(sign '{"role": "anon"}')
 USER_JWT=$(sign "{\"role\": \"authenticated\", \"aud\": \"authenticated\", \"sub\": \"$USER_ID\"}")
+ADMIN_JWT=$(sign "{\"role\": \"authenticated\", \"aud\": \"authenticated\", \"sub\": \"$ADMIN_ID\"}")
 
 cat > "$WORK/postgrest.conf" <<EOF
 db-uri = "$PG_URI"
@@ -56,9 +60,12 @@ for _ in $(seq 50); do
   sleep 0.2
 done
 
+export PALAVA_TEST_API_URL=http://127.0.0.1:3100
+export PALAVA_TEST_ANON_KEY=$ANON_KEY
+export PALAVA_TEST_USER_JWT=$USER_JWT PALAVA_TEST_USER_ID=$USER_ID
+export PALAVA_TEST_ADMIN_JWT=$ADMIN_JWT PALAVA_TEST_ADMIN_ID=$ADMIN_ID
 cd ..
-PALAVA_TEST_API_URL=http://127.0.0.1:3100 \
-PALAVA_TEST_ANON_KEY=$ANON_KEY \
-PALAVA_TEST_USER_JWT=$USER_JWT \
-PALAVA_TEST_USER_ID=$USER_ID \
-  flutter test test/supabase_backend_test.dart
+flutter test test/supabase_backend_test.dart
+# The viewer's unlocks above changed the data; the admin checks expect the
+# original sample settings, which the viewer cannot change.
+(cd admin && flutter test test/admin_api_test.dart)

@@ -10,9 +10,9 @@ The project brief is in [CLAUDE.md](CLAUDE.md).
 | 1. Project setup (Flutter app, Git, folders, theme) | Done |
 | 2. Seven screens with sample data | Done |
 | 3. Video player | Done |
-| 4. Backend (Supabase) | Built; needs your Supabase project |
-| 5. Admin panel | Next |
-| 6. Monetization and payments | Later |
+| 4. Backend (Supabase) | Done (real SMS and Google/Apple sign-in later) |
+| 5. Admin panel | Done |
+| 6. Monetization and payments | Next |
 | 7. Downloads, data saver, notifications | Later |
 
 Everything you see is sample data. Videos are free public test clips from
@@ -339,6 +339,65 @@ With `env.json` in place (Step C):
    title. Close and reopen the app: the change shows up without a new app
    build.
 
+## Admin panel (Milestone 5)
+
+A website for managing Palava without touching Supabase: series, episodes,
+settings, coin packs, passes and Home rows. It runs in Chrome on your
+computer, from the `palava\admin` folder, and uses the same `env.json`.
+
+### One-time setup
+
+1. **Allow admins in the database.** In PowerShell, from the `palava` folder:
+   ```
+   git pull
+   notepad supabase\migrations\20261001000000_admin_access.sql
+   ```
+   Press Ctrl+A, Ctrl+C. In Supabase: **SQL Editor** > **New query**, paste,
+   **Run**. Expect "Success. No rows returned". (PowerShell commands go in
+   PowerShell; only the file's contents go in Supabase.)
+2. **Create your admin login.** In Supabase: **Authentication** > **Users** >
+   **Add user** > **Create new user**. Enter your email and a strong password,
+   tick **Auto Confirm User**, and click **Create user**.
+3. **Make that login an admin.** In Supabase: **SQL Editor** > **New query**,
+   paste this with your email, and **Run**:
+   ```sql
+   insert into public.admins (user_id)
+   select id from auth.users where email = 'you@example.com';
+   ```
+   Expect "Success. 1 row" (or "No rows returned" if the email is wrong).
+
+### Opening the admin panel
+
+In PowerShell:
+```
+cd $HOME\Documents\Gateway\palava\admin
+flutter run -d chrome --dart-define-from-file=../env.json
+```
+Chrome opens with the sign-in page. The first start takes a minute or two.
+Press `q` in PowerShell to stop it.
+
+### What to check (Milestone 5)
+
+1. Sign in with your admin email and password. You see the 8 series.
+2. **Series > New series:** create one (for example "Test Show"), leave it
+   **Hidden**, click **Create series**. Then **Add episodes**: 3 episodes,
+   length `75`, video link
+   `https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8`.
+3. On your phone the new series does not appear yet (it is hidden). Back in
+   the admin panel, switch **Published** on and **Save changes**. Close and
+   reopen the app: the series is there and its episodes play.
+4. **Settings:** change **Coins to unlock an episode** to 20 and **Save
+   settings**. Reopen the app: unlock buttons say 20 coins.
+5. **Home rows:** create a row, add two series, save. Reopen the app: the
+   row is on Home.
+6. **Store:** add a coin pack with a price label such as `USD 1.99`. The
+   Wallet shows it.
+
+Videos: the admin panel takes a **video link** (an HLS `.m3u8` address) for
+each episode. Uploading video files needs a video hosting account (Mux or
+Cloudflare Stream), which turns uploads into data-saving streams; Claude will
+add uploading once that account exists.
+
 ## For developers
 
 - `lib/theme/`: colours, fonts and the app theme (brief: "fireside").
@@ -362,6 +421,11 @@ With `env.json` in place (Step C):
   security rules on a plain PostgreSQL; `supabase/tests/run_api_tests.sh`
   runs `test/supabase_backend_test.dart` against PostgREST (the server
   Supabase uses).
+- `admin/`: the admin panel (Flutter web). `admin/lib/api/admin_api.dart`
+  talks to Supabase; `supabase/migrations/20261001000000_admin_access.sql`
+  lets accounts in `public.admins` change the catalog. Tests:
+  `cd admin && flutter test` (screens, with a fake server) and
+  `supabase/tests/run_api_tests.sh` (against PostgREST).
 - Sample episodes use Google's public HLS test streams and stop at 75 seconds
   (`Episode.endsAt`); sample WebVTT subtitles come from `sample_data.dart`.
 - `lib/screens/`: one file per screen. `lib/widgets/`: shared pieces.
