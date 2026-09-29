@@ -270,5 +270,91 @@ select pg_temp.check(
   'unpublished series and their episodes are hidden');
 rollback;
 
+-- --- Admins ------------------------------------------------------------------
+insert into auth.users (id, phone) values
+  ('00000000-0000-0000-0000-0000000000ad', '231770000099');
+insert into public.admins (user_id)
+values ('00000000-0000-0000-0000-0000000000ad');
+
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+select pg_temp.check(not public.is_admin(), 'viewers are not admins');
+do $$
+begin
+  insert into public.series (id, title) values ('sneaky', 'Sneaky');
+  raise exception 'FAILED: a viewer created a series';
+exception when insufficient_privilege then
+  raise notice 'ok: viewers cannot create series';
+end $$;
+do $$
+begin
+  insert into public.admins (user_id)
+  values ('00000000-0000-0000-0000-00000000000a');
+  raise exception 'FAILED: a viewer made themselves an admin';
+exception when insufficient_privilege then
+  raise notice 'ok: viewers cannot make themselves admins';
+end $$;
+update public.app_settings set unlock_cost_coins = 1;
+update public.series set title = 'Hacked' where id = 'waterside';
+rollback;
+
+select pg_temp.check(
+  (select unlock_cost_coins from public.app_settings) = 30 and
+  (select title from public.series where id = 'waterside') = 'Waterside Boys',
+  'viewers cannot change settings or series');
+
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000ad';
+select pg_temp.check(public.is_admin(), 'admins are recognised');
+insert into public.series (id, title, genres)
+values ('new-show', 'New Show', array['Drama']);
+insert into public.episodes (series_id, number, duration_seconds)
+values ('new-show', 1, 90);
+insert into public.episode_media (episode_id, video_url)
+select id, 'https://example.com/new.m3u8' from public.episodes
+where series_id = 'new-show' and number = 1;
+update public.app_settings set unlock_cost_coins = 25;
+insert into public.coin_packs (coins, position) values (50, 9);
+insert into public.home_rows (title, series_ids) values ('Test', '{new-show}');
+select pg_temp.check(
+  exists (select 1 from public.series where id = 'new-show'),
+  'admins see unpublished series');
+select pg_temp.check(
+  (select count(*) from public.episode_media m join public.episodes e
+   on e.id = m.episode_id where e.series_id = 'new-show') = 1,
+  'admins add episodes with video links');
+select pg_temp.check(
+  (select count(*) from public.series_catalog where id = 'new-show') = 0,
+  'the catalog still hides unpublished series');
+commit;
+
+begin;
+set local role anon;
+select pg_temp.check(
+  not exists (select 1 from public.series where id = 'new-show') and
+  (select unlock_cost_coins from public.app_settings) = 25,
+  'guests do not see the draft, but do get the new settings');
+rollback;
+
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000ad';
+update public.series set published = true where id = 'new-show';
+delete from public.coin_packs where coins = 50;
+commit;
+
+begin;
+set local role anon;
+select pg_temp.check(
+  (select episode_count from public.series_catalog where id = 'new-show') = 1
+  and (select count(*) from public.coin_packs) = 4,
+  'publishing shows the series; deleted packs disappear');
+rollback;
+
+-- Put the sample settings back for any later checks.
+update public.app_settings set unlock_cost_coins = 30;
+
 \o
 \echo 'All database checks passed.'
