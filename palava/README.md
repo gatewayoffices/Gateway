@@ -288,15 +288,25 @@ as before. Do them in order; each takes a few minutes.
 
 Phone codes are sent by text message through an SMS company that Supabase
 connects to (for example **Twilio**). Texts to Liberia cost money per
-message, so first set up free test numbers:
+message, so for testing use a free test number that never sends a text:
 
 1. In Supabase: **Authentication** > **Sign In / Providers** > **Phone**, and
-   turn it on.
-2. Under **Test Phone Numbers and OTPs**, add for example
-   `231770000001=123456` and save. That number then signs in with the code
-   `123456`, and no text is sent.
-3. If Supabase will not save without SMS company details, stop and tell
-   Claude: we will pick the SMS company together (Twilio has a free trial).
+   turn on **Enable Phone provider**.
+2. Supabase requires SMS company details before it will save. Until we pick a
+   real SMS company, use these placeholders (they are not real accounts):
+   - **SMS provider:** Twilio
+   - **Twilio Account SID:** `AC00000000000000000000000000000000`
+   - **Twilio Auth Token:** `placeholder`
+   - **Twilio Message Service SID:** `MG00000000000000000000000000000000`
+3. **SMS OTP Expiry:** `300` seconds (texts can arrive slowly).
+4. **Test Phone Numbers and OTPs:** `231770000001=123456` (no `+`, no spaces).
+5. **Test OTPs Valid Until:** a date a few months ahead. Test numbers stop
+   working after this date, and Supabase then tries to send a real text,
+   which fails with a Twilio "account does not exist" error.
+6. Click **Save**, reopen **Phone**, and check everything stayed.
+
+That number then signs in with the code `123456`. Real phone numbers will not
+receive codes until a real SMS company is connected.
 
 ### Step E (later): Google and Apple sign-in
 
