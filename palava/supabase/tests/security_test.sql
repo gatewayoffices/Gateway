@@ -506,5 +506,43 @@ rollback;
 -- Put the sample settings back for any later checks.
 update public.app_settings set unlock_cost_coins = 30;
 
+-- --- Deleting an account ----------------------------------------------------
+begin;
+set local role anon;
+do $$
+begin
+  perform public.delete_my_account();
+  raise exception 'FAILED: a guest called delete_my_account';
+exception when insufficient_privilege then
+  raise notice 'ok: guests cannot delete accounts';
+end $$;
+rollback;
+
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-0000000000ad';
+do $$
+begin
+  perform public.delete_my_account();
+  raise exception 'FAILED: an admin deleted their own account';
+exception when raise_exception then
+  raise notice 'ok: admin accounts are not deleted from the app';
+end $$;
+rollback;
+
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+select public.delete_my_account();
+commit;
+
+select pg_temp.check(
+  not exists (select 1 from auth.users where id = '00000000-0000-0000-0000-00000000000b')
+  and not exists (select 1 from public.wallets where user_id = '00000000-0000-0000-0000-00000000000b')
+  and not exists (select 1 from public.profiles where id = '00000000-0000-0000-0000-00000000000b')
+  and not exists (select 1 from public.user_passes where user_id = '00000000-0000-0000-0000-00000000000b')
+  and exists (select 1 from public.wallets where user_id = '00000000-0000-0000-0000-00000000000a'),
+  'deleting an account removes that viewer''s data and nobody else''s');
+
 \o
 \echo 'All database checks passed.'

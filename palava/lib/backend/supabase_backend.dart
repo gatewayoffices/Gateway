@@ -89,6 +89,9 @@ class SupabaseBackend implements Backend {
         dataSaverMaxBitrate: settings['data_saver_max_bitrate'] as int,
         priceLabel: settings['price_label'] as String,
         paymentMode: PaymentMode.parse(settings['payment_mode'] as String?),
+        privacyUrl: settings['privacy_url'] as String?,
+        termsUrl: settings['terms_url'] as String?,
+        supportEmail: settings['support_email'] as String?,
         coinPacks: [for (final p in rows(2)) CoinPack.fromJson(p)],
         passes: [for (final p in rows(3)) Pass.fromJson(p)],
         homeRows: [for (final r in rows(4)) HomeRow.fromJson(r)],
@@ -266,6 +269,13 @@ class SupabaseBackend implements Backend {
             ),
       ],
     );
+  });
+
+  @override
+  Future<void> deleteAccount() => _guard(() async {
+    await _client.rpc<void>('delete_my_account');
+    // The account is gone, so only forget it on this phone.
+    await _client.auth.signOut(scope: SignOutScope.local);
   });
 
   @override

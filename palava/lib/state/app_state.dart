@@ -309,6 +309,15 @@ class AppState extends ChangeNotifier {
     _signedOut();
   }
 
+  /// Deletes the account and everything saved for it, then returns to the
+  /// Welcome screen. Throws [BackendException].
+  Future<void> deleteAccount() async {
+    await backend.deleteAccount();
+    history.clear();
+    await downloads?.removeAll();
+    _signedOut();
+  }
+
   void _onUserChanged(BackendUser? user) {
     if (user == null) {
       if (_user != null) _signedOut();

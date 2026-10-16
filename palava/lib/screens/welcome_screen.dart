@@ -160,12 +160,50 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               child: const Text('Browse as a guest'),
             ),
             const SizedBox(height: 16),
-            Text(
-              'By continuing you agree to the Terms and Privacy Policy.',
-              textAlign: TextAlign.center,
-              style: textTheme.bodySmall,
+            Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  'By continuing you agree to the ',
+                  style: textTheme.bodySmall,
+                ),
+                _FooterLink(
+                  'Terms',
+                  onTap: () => openLink(context, state.config.termsUrl),
+                ),
+                Text(' and ', style: textTheme.bodySmall),
+                _FooterLink(
+                  'Privacy Policy',
+                  onTap: () => openLink(context, state.config.privacyUrl),
+                ),
+                Text('.', style: textTheme.bodySmall),
+              ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FooterLink extends StatelessWidget {
+  const _FooterLink(this.label, {required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        // Keeps the tap area comfortable without spreading the sentence.
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(decoration: TextDecoration.underline),
         ),
       ),
     );

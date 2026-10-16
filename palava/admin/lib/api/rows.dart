@@ -143,6 +143,9 @@ class Settings {
     this.featuredSeriesId,
     this.forYouSeriesIds = const [],
     this.paymentMode = 'test',
+    this.privacyUrl,
+    this.termsUrl,
+    this.supportEmail,
   });
 
   int freeEpisodeCount;
@@ -157,6 +160,11 @@ class Settings {
   /// 'test' (admins confirm each purchase) or 'off' (Pay is closed).
   String paymentMode;
 
+  /// Shown in the app (Welcome and Profile). Null until set.
+  String? privacyUrl;
+  String? termsUrl;
+  String? supportEmail;
+
   factory Settings.fromJson(Map<String, dynamic> json) => Settings(
     freeEpisodeCount: json['free_episode_count'] as int,
     unlockCostCoins: json['unlock_cost_coins'] as int,
@@ -167,6 +175,9 @@ class Settings {
     featuredSeriesId: json['featured_series_id'] as String?,
     forYouSeriesIds: _strings(json['for_you_series_ids']),
     paymentMode: json['payment_mode'] as String? ?? 'test',
+    privacyUrl: json['privacy_url'] as String?,
+    termsUrl: json['terms_url'] as String?,
+    supportEmail: json['support_email'] as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -179,6 +190,9 @@ class Settings {
     'featured_series_id': featuredSeriesId,
     'for_you_series_ids': forYouSeriesIds,
     'payment_mode': paymentMode,
+    'privacy_url': privacyUrl,
+    'terms_url': termsUrl,
+    'support_email': supportEmail,
   };
 }
 

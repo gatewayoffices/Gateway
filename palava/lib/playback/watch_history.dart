@@ -74,6 +74,12 @@ class WatchHistory {
 
   bool get isEmpty => _entries.isEmpty;
 
+  /// Forgets everything (used when the viewer deletes their account).
+  void clear() {
+    _entries.clear();
+    _prefs?.remove(_key);
+  }
+
   void record(WatchEntry entry) {
     _entries[entry.seriesId] = entry;
     _prefs?.setString(

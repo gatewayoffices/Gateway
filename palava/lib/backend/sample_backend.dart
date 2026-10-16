@@ -80,6 +80,18 @@ class SampleBackend implements Backend {
   }
 
   @override
+  Future<void> deleteAccount() async {
+    _balance = 45;
+    _adsUsed = 0;
+    _unlocked.clear();
+    _myList.clear();
+    _liked.clear();
+    _purchases.clear();
+    _passEndsAt = null;
+    await signOut();
+  }
+
+  @override
   Future<ViewerData> loadViewer() async => snapshot();
 
   /// The current viewer data, available without waiting.

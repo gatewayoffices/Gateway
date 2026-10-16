@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../backend/backend.dart';
 import '../state/app_state.dart';
 import '../theme/palava_colors.dart';
 import '../theme/palava_theme.dart';
@@ -34,6 +35,37 @@ class ProfileScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _deleteAccount(BuildContext context, AppState state) async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete your account?'),
+        content: const Text(
+          'Your coins, passes, unlocked episodes, My List, watch history '
+          'and downloads are deleted for good. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep my account'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (sure != true || !context.mounted) return;
+    final navigator = Navigator.of(context);
+    try {
+      await state.deleteAccount();
+      navigator.popUntil((route) => route.isFirst);
+    } on BackendException catch (e) {
+      if (context.mounted) showSampleMessage(context, e.message);
+    }
   }
 
   /// Both lead back to the Welcome screen, where the viewer can sign in.
@@ -147,10 +179,17 @@ class ProfileScreen extends StatelessWidget {
               _NavTile(
                 icon: Icons.help_outline,
                 title: 'Help',
-                onTap: () => showSampleMessage(
-                  context,
-                  'Help pages will be added later.',
-                ),
+                onTap: () => openLink(context, state.config.supportEmail),
+              ),
+              _NavTile(
+                icon: Icons.privacy_tip_outlined,
+                title: 'Privacy Policy',
+                onTap: () => openLink(context, state.config.privacyUrl),
+              ),
+              _NavTile(
+                icon: Icons.description_outlined,
+                title: 'Terms',
+                onTap: () => openLink(context, state.config.termsUrl),
               ),
             ],
           ),
@@ -163,6 +202,13 @@ class ProfileScreen extends StatelessWidget {
                 color: PalavaColors.ember,
                 onTap: () => _logOut(context, state),
               ),
+              if (state.isSignedIn)
+                _NavTile(
+                  icon: Icons.delete_forever_outlined,
+                  title: 'Delete my account',
+                  color: PalavaColors.textQuiet,
+                  onTap: () => _deleteAccount(context, state),
+                ),
             ],
           ),
         ],

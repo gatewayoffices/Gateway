@@ -145,6 +145,9 @@ abstract class Backend {
 
   Future<void> signOut();
 
+  /// Deletes the signed-in viewer's account and all their data.
+  Future<void> deleteAccount();
+
   Future<ViewerData> loadViewer();
 
   /// Returns the new coin balance.

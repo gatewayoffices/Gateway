@@ -546,6 +546,65 @@ What to check:
 Every viewer with notifications on is in the `new-episodes` topic, so a
 campaign sent to that topic reaches all of them.
 
+## Publishing on Google Play
+
+Done in the app: the Palava icon and dark start-up screen, **Delete my
+account** in Profile (Google requires it for apps with sign-in), and
+privacy policy, terms and help links set from the admin panel
+(**Settings** > **Links in the app**).
+
+### Step 1: Update the database (once)
+
+In PowerShell, from the `palava` folder: `git pull`, then
+`notepad supabase\migrations\20261003000000_launch.sql`. Copy everything,
+paste into Supabase **SQL Editor** > **New query**, **Run**.
+
+### Step 2: Create your upload key (once, keep it forever)
+
+Google Play only accepts the app signed with your own key. Losing the key
+or its password means you can never update the app from that key again
+(Google can reset it, slowly), so back it up.
+
+1. In PowerShell:
+   ```
+   mkdir $HOME\palava-keys
+   & "C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe" -genkey -v -keystore $HOME\palava-keys\upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+   ```
+   It asks for a password (twice) and a few questions (your name and
+   organisation; the rest can be left empty). Write the password in your
+   password manager. Never send it to anyone, including Claude.
+2. Copy the folder `palava-keys` to a safe second place (a USB stick or
+   private cloud storage).
+3. In the `palava\android` folder create a file named `key.properties`
+   (`notepad $HOME\Documents\Gateway\palava\android\key.properties`) with
+   these four lines, using your password:
+   ```
+   storePassword=YOUR-PASSWORD
+   keyPassword=YOUR-PASSWORD
+   keyAlias=upload
+   storeFile=C:/Users/AmaraKamara/palava-keys/upload-keystore.jks
+   ```
+   This file is kept out of Git.
+
+### Step 3: Build the file Google Play takes
+
+```
+cd $HOME\Documents\Gateway\palava
+flutter build appbundle --release --dart-define-from-file=env.json
+```
+The result is `build\app\outputs\bundle\release\app-release.aab`.
+
+### Step 4: Google Play Console
+
+Create a developer account at play.google.com/console (one-time fee, and
+Google checks your identity). Then **Create app**, and fill in the store
+listing, privacy policy address, data safety form, content rating, target
+audience, and **App access** (give reviewers the test phone number and code
+so they can sign in). Upload the `.aab` to **Internal testing** first.
+New personal developer accounts must also run a closed test with testers
+for a couple of weeks before the app can go public; Google's console shows
+the current rule.
+
 ## For developers
 
 - `lib/theme/`: colours, fonts and the app theme (brief: "fireside").
@@ -585,6 +644,9 @@ campaign sent to that topic reaches all of them.
   `android/gradle.properties`). Ad unlocks are still trusted from the app,
   limited per day on the server; AdMob server-side verification comes with
   the AdMob account.
+- Launch: `supabase/migrations/20261003000000_launch.sql` (`delete_my_account`,
+  link settings). Release signing reads `android/key.properties`
+  (git-ignored); icons come from `tool/make_icons.py`.
 - Notifications: `lib/notifications/push_service.dart` (Firebase Cloud
   Messaging, topic `new-episodes`, data keys `series` and `episode`). The
   Gradle plugin `com.google.gms.google-services` is applied only when

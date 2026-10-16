@@ -199,6 +199,9 @@ class AppConfig {
     required this.homeRows,
     required this.priceLabel,
     this.paymentMode = PaymentMode.test,
+    this.privacyUrl,
+    this.termsUrl,
+    this.supportEmail,
   });
 
   final int freeEpisodeCount;
@@ -217,6 +220,11 @@ class AppConfig {
   /// How the Pay button behaves (set in the admin panel).
   final PaymentMode paymentMode;
 
+  /// Links shown on Welcome and Profile (set in the admin panel).
+  final String? privacyUrl;
+  final String? termsUrl;
+  final String? supportEmail;
+
   int freeEpisodesFor(Series series) => series.freeEpisodes ?? freeEpisodeCount;
 
   int unlockCostFor(Series series) => series.unlockCostCoins ?? unlockCostCoins;
@@ -233,6 +241,9 @@ class AppConfig {
     'data_saver_max_bitrate': dataSaverMaxBitrate,
     'price_label': priceLabel,
     'payment_mode': paymentMode.name,
+    'privacy_url': privacyUrl,
+    'terms_url': termsUrl,
+    'support_email': supportEmail,
     'coin_packs': [for (final p in coinPacks) p.toJson()],
     'passes': [for (final p in passes) p.toJson()],
     'home_rows': [for (final r in homeRows) r.toJson()],
@@ -245,6 +256,9 @@ class AppConfig {
     dataSaverMaxBitrate: json['data_saver_max_bitrate'] as int,
     priceLabel: json['price_label'] as String,
     paymentMode: PaymentMode.parse(json['payment_mode'] as String?),
+    privacyUrl: json['privacy_url'] as String?,
+    termsUrl: json['terms_url'] as String?,
+    supportEmail: json['support_email'] as String?,
     coinPacks: [
       for (final p in json['coin_packs'] as List)
         CoinPack.fromJson(p as Map<String, dynamic>),

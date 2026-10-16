@@ -49,6 +49,22 @@ class _SettingsFormState extends State<_SettingsForm> {
   late String? _featured = _s.featuredSeriesId;
   late List<String> _forYou = [..._s.forYouSeriesIds];
   late String _paymentMode = _s.paymentMode;
+  late final _privacy = TextEditingController(text: _s.privacyUrl ?? '');
+  late final _terms = TextEditingController(text: _s.termsUrl ?? '');
+  late final _support = TextEditingController(text: _s.supportEmail ?? '');
+
+  static String? _orNull(TextEditingController c) =>
+      c.text.trim().isEmpty ? null : c.text.trim();
+
+  static String? _checkUrl(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return null;
+    final uri = Uri.tryParse(v);
+    return uri != null && uri.scheme == 'https' && uri.host.isNotEmpty
+        ? null
+        : 'Must be a web address starting with https://';
+  }
+
   bool _saving = false;
 
   Future<void> _save() async {
@@ -62,7 +78,10 @@ class _SettingsFormState extends State<_SettingsForm> {
       ..priceLabel = _price.text.trim()
       ..featuredSeriesId = _featured
       ..forYouSeriesIds = _forYou
-      ..paymentMode = _paymentMode;
+      ..paymentMode = _paymentMode
+      ..privacyUrl = _orNull(_privacy)
+      ..termsUrl = _orNull(_terms)
+      ..supportEmail = _orNull(_support);
     setState(() => _saving = true);
     await runAction(
       context,
@@ -218,6 +237,51 @@ class _SettingsFormState extends State<_SettingsForm> {
                       ),
                     ],
                     onChanged: (v) => setState(() => _paymentMode = v!),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          gap,
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('Links in the app', style: text.titleLarge),
+                  gap,
+                  TextFormField(
+                    controller: _privacy,
+                    decoration: const InputDecoration(
+                      labelText: 'Privacy policy web address',
+                      helperText: 'Required by Google Play, e.g. https://...',
+                    ),
+                    validator: _checkUrl,
+                  ),
+                  gap,
+                  TextFormField(
+                    controller: _terms,
+                    decoration: const InputDecoration(
+                      labelText: 'Terms of use web address',
+                    ),
+                    validator: _checkUrl,
+                  ),
+                  gap,
+                  TextFormField(
+                    controller: _support,
+                    decoration: const InputDecoration(
+                      labelText: 'Help email address',
+                      helperText: 'Profile > Help writes to this address.',
+                    ),
+                    validator: (v) {
+                      final value = v?.trim() ?? '';
+                      return value.isEmpty ||
+                              RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                                  .hasMatch(value)
+                          ? null
+                          : 'Not an email address';
+                    },
                   ),
                 ],
               ),

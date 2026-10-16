@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/palava_colors.dart';
 import '../theme/palava_theme.dart';
@@ -230,4 +231,27 @@ String formatDateTime(DateTime time) {
   String two(int n) => n.toString().padLeft(2, '0');
   return '${local.day} ${months[local.month - 1]}, '
       '${two(local.hour)}:${two(local.minute)}';
+}
+
+/// Opens a web page or an email address outside the app. [link] may be
+/// null when the business has not set it yet.
+Future<void> openLink(BuildContext context, String? link) async {
+  final uri = link == null || link.trim().isEmpty
+      ? null
+      : Uri.tryParse(
+          link.contains('@') && !link.contains('://')
+              ? 'mailto:${link.trim()}'
+              : link.trim(),
+        );
+  var opened = false;
+  if (uri != null) {
+    try {
+      opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } on Object {
+      opened = false;
+    }
+  }
+  if (!opened && context.mounted) {
+    showSampleMessage(context, 'This page is not available yet.');
+  }
 }
