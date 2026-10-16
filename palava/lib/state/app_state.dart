@@ -11,6 +11,7 @@ import '../data/models.dart';
 import '../data/sample_data.dart';
 import '../downloads/download_manager.dart';
 import '../downloads/hls_downloader.dart';
+import '../notifications/push_service.dart';
 import '../playback/video_controllers.dart';
 import '../playback/watch_history.dart';
 
@@ -43,7 +44,9 @@ class AppState extends ChangeNotifier {
     Directory? downloadsDir,
     NetworkStatus? network,
     HlsDownloader? downloader,
+    PushService? push,
   }) : backend = backend ?? SampleBackend(),
+       push = push ?? const NoPush(),
        rewardedAds = rewardedAds ?? const InstantRewardedAds(),
        _prefs = prefs,
        history = WatchHistory(prefs),
@@ -78,6 +81,8 @@ class AppState extends ChangeNotifier {
 
   final Backend backend;
   final RewardedAds rewardedAds;
+  final PushService push;
+  bool _pushReady = false;
 
   /// Episodes saved on the phone. Null where saving files is not possible
   /// (tests that do not ask for it).
@@ -106,7 +111,25 @@ class AppState extends ChangeNotifier {
     final user = backend.currentUser;
     if (user != null) unawaited(_signedIn(user));
     unawaited(downloads?.load());
+    unawaited(_startPush());
     await refreshCatalog();
+  }
+
+  Future<void> _startPush() async {
+    _pushReady = await push.start();
+    if (enteredApp) await _applyPush();
+  }
+
+  /// Asks for notification permission only once the viewer is in the app,
+  /// not on the Welcome screen. If the phone refuses, the switch turns off.
+  Future<void> _applyPush() async {
+    if (!_pushReady) return;
+    final on = await push.setEnabled(notifications);
+    if (notifications && !on) {
+      notifications = false;
+      _prefs?.setBool(_notificationsKey, false);
+      notifyListeners();
+    }
   }
 
   DateTime? _lastRefresh;
@@ -257,6 +280,7 @@ class AppState extends ChangeNotifier {
   void browseAsGuest() {
     enteredApp = true;
     notifyListeners();
+    unawaited(_applyPush());
   }
 
   /// Sends the viewer back to the Welcome screen to sign in.
@@ -299,6 +323,7 @@ class AppState extends ChangeNotifier {
     enteredApp = true;
     notifyListeners();
     unawaited(_pushWelcomeChoices());
+    unawaited(_applyPush());
     await refreshViewer();
   }
 
@@ -476,6 +501,7 @@ class AppState extends ChangeNotifier {
     notifications = value;
     _prefs?.setBool(_notificationsKey, value);
     notifyListeners();
+    unawaited(_applyPush());
   }
 
   // --- Watch history ---------------------------------------------------------

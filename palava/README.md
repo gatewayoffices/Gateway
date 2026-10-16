@@ -13,7 +13,7 @@ The project brief is in [CLAUDE.md](CLAUDE.md).
 | 4. Backend (Supabase) | Done (real SMS and Google/Apple sign-in later) |
 | 5. Admin panel | Done |
 | 6. Monetization and payments | In progress: coins, passes, test ads and test payments done; real payments need accounts |
-| 7. Downloads, data saver, notifications | In progress: downloads and data saver done; notifications need a Firebase account |
+| 7. Downloads, data saver, notifications | Done (to check on your phone) |
 
 Everything you see is sample data. Videos are free public test clips from
 Google (not African dramas, and landscape rather than vertical); they only prove
@@ -511,22 +511,40 @@ How it behaves:
 - **Data saver** (Profile, on by default) already keeps streaming at the
   lowest good quality, and only the next episode is loaded ahead.
 
-### Push notifications: what you need to set up
+### Push notifications
 
-Notifications ("New episode of Market Queen is out") use Google's **Firebase
-Cloud Messaging**, which is free. It needs a Firebase project before Claude
-can build it:
+One-time setup (done): a Firebase project with an Android app
+`com.palava.palava`, and its **google-services.json** file in
+`palava\android\app\`. That file is kept out of Git; without it the app
+still runs, just without notifications. Keep a copy somewhere safe (or
+download it again from Firebase: gear icon > **Project settings** > **Your
+apps**).
 
-1. Go to [console.firebase.google.com](https://console.firebase.google.com),
-   sign in with a Google account, and click **Create a project** (name it
-   Palava; Google Analytics is optional).
-2. In the project, click the **Android** icon to add an Android app. For
-   **Android package name** type exactly `com.palava.palava`, then click
-   **Register app**.
-3. Download the **google-services.json** file it offers and put it in
-   `palava\android\app\`. It is not a password, but keep it out of chats.
-4. Tell Claude when it is done. Firebase **Crashlytics** (crash reports) can
-   be switched on in the same project.
+What to check:
+
+1. Restart the app on your phone (`q`, `git pull`, the usual `flutter run`).
+   After you enter the app (sign in or browse as a guest), Android asks
+   **"Allow Palava to send you notifications?"**: tap **Allow**.
+2. Send yourself a test. In the Firebase console: **Messaging** (under
+   **Engage**, or search for it) > **Create your first campaign** >
+   **Firebase Notification messages** > **Create**.
+   - **Notification title**: `New episode`; **Notification text**:
+     `The Bride Price has a new episode`. Click **Next**.
+   - **Target**: choose **Topic** and type `new-episodes`. Click **Next**.
+   - **Scheduling**: **Now**. Click **Next** until **Additional options**.
+   - **Custom data**: key `series`, value `bride-price` (this makes a tap
+     open that series). Optionally add key `episode`, value `9`.
+   - Click **Review** > **Publish**.
+3. With the app closed or in the background, the notification arrives
+   within a minute or two, with a small play icon. Tap it: Palava opens on
+   The Bride Price.
+4. With the app open, it shows as a message at the bottom of the screen
+   with a **Watch** button.
+5. Turn **Notifications** off in Profile and send another: it no longer
+   arrives.
+
+Every viewer with notifications on is in the `new-episodes` topic, so a
+campaign sent to that topic reaches all of them.
 
 ## For developers
 
@@ -567,6 +585,10 @@ can build it:
   `android/gradle.properties`). Ad unlocks are still trusted from the app,
   limited per day on the server; AdMob server-side verification comes with
   the AdMob account.
+- Notifications: `lib/notifications/push_service.dart` (Firebase Cloud
+  Messaging, topic `new-episodes`, data keys `series` and `episode`). The
+  Gradle plugin `com.google.gms.google-services` is applied only when
+  `android/app/google-services.json` exists (git-ignored).
 - Downloads: `lib/downloads/hls_downloader.dart` saves one quality of an
   HLS stream (at or under `dataSaverMaxBitrate`, stereo audio, up to
   `Episode.endsAt`) and rewrites the playlists to local files;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -11,8 +12,11 @@ import 'backend/backend.dart';
 import 'backend/backend_config.dart';
 import 'backend/sample_backend.dart';
 import 'backend/supabase_backend.dart';
+import 'notifications/push_service.dart';
 import 'playback/episode_feed.dart';
+import 'screens/home_screen.dart';
 import 'screens/main_shell.dart';
+import 'screens/player_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'state/app_state.dart';
 import 'theme/palava_colors.dart';
@@ -51,6 +55,7 @@ Future<void> main() async {
     prefs: prefs,
     rewardedAds: onPhone ? AdMobRewardedAds() : null,
     downloadsDir: downloadsDir,
+    push: onPhone ? FirebasePush() : null,
   );
   runApp(PalavaApp(state: state));
   await state.start();
@@ -89,16 +94,55 @@ class _RootState extends State<_Root> {
     onResume: () => AppStateScope.read(context).refreshIfStale(),
   );
 
+  final _pushListeners = <StreamSubscription<PushMessage>>[];
+
   @override
   void initState() {
     super.initState();
     _lifecycle; // Start listening.
+    final push = AppStateScope.read(context).push;
+    _pushListeners
+      ..add(push.opened.listen(_open))
+      ..add(push.foreground.listen(_showInApp));
   }
 
   @override
   void dispose() {
     _lifecycle.dispose();
+    for (final listener in _pushListeners) {
+      listener.cancel();
+    }
     super.dispose();
+  }
+
+  /// A tapped notification opens the series (or episode) it is about.
+  void _open(PushMessage message) {
+    final state = AppStateScope.read(context);
+    if (state.phase != AppPhase.ready || message.seriesId == null) return;
+    final series = state.catalog.seriesById(message.seriesId!);
+    if (series == null) return;
+    if (message.episode != null) {
+      openPlayer(context, series, episode: message.episode);
+    } else {
+      openSeries(context, series);
+    }
+  }
+
+  /// While the app is open the phone shows nothing, so show it here.
+  void _showInApp(PushMessage message) {
+    final text = [?message.title, ?message.body].join('\n');
+    if (text.isEmpty) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(text),
+          duration: const Duration(seconds: 6),
+          action: message.seriesId == null
+              ? null
+              : SnackBarAction(label: 'Watch', onPressed: () => _open(message)),
+        ),
+      );
   }
 
   @override
