@@ -35,7 +35,11 @@
                 <data android:scheme="com.palava.palava" android:host="login-callback"/>
             </intent-filter>
         </activity>
-        <!-- Push notifications: small icon and colour. -->
+        <!-- Push notifications: required by Firebase Messaging 17 to register
+             this phone; then the small icon and colour. -->
+        <meta-data
+            android:name="firebase_messaging_installation_id_enabled"
+            android:value="true"/>
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_notification"/>

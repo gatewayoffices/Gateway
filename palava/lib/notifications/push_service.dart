@@ -108,8 +108,15 @@ class FirebasePush implements PushService {
         return false;
       }
       await messaging.setAutoInitEnabled(true);
-      await messaging.register();
+      // The topic first: it is what announcements are sent to.
       await messaging.subscribeToTopic(topic);
+      debugPrint('Palava: notifications on (topic $topic)');
+      try {
+        // Lets a test be sent to this one phone (its ID is printed above).
+        await messaging.register();
+      } on Object catch (e) {
+        debugPrint('Palava: could not register this phone directly: $e');
+      }
       return true;
     } on Object catch (e) {
       // e.g. no connection: try again next time the app opens.
