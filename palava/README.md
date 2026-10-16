@@ -13,7 +13,7 @@ The project brief is in [CLAUDE.md](CLAUDE.md).
 | 4. Backend (Supabase) | Done (real SMS and Google/Apple sign-in later) |
 | 5. Admin panel | Done |
 | 6. Monetization and payments | In progress: coins, passes, test ads and test payments done; real payments need accounts |
-| 7. Downloads, data saver, notifications | Done (to check on your phone) |
+| 7. Downloads, data saver, notifications | Done |
 
 Everything you see is sample data. Videos are free public test clips from
 Google (not African dramas, and landscape rather than vertical); they only prove
