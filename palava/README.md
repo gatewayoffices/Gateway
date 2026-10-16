@@ -13,7 +13,7 @@ The project brief is in [CLAUDE.md](CLAUDE.md).
 | 4. Backend (Supabase) | Done (real SMS and Google/Apple sign-in later) |
 | 5. Admin panel | Done |
 | 6. Monetization and payments | In progress: coins, passes, test ads and test payments done; real payments need accounts |
-| 7. Downloads, data saver, notifications | Later |
+| 7. Downloads, data saver, notifications | In progress: downloads and data saver done; notifications need a Firebase account |
 
 Everything you see is sample data. Videos are free public test clips from
 Google (not African dramas, and landscape rather than vertical); they only prove
@@ -478,6 +478,56 @@ Nothing here is needed to keep building; test mode works without them.
   `"ADMOB_REWARDED_ID": "..."`. Before launch, AdMob's **Privacy &
   messaging** consent form is needed for viewers in the UK and Europe.
 
+## Downloads and data saver (Milestone 7)
+
+### What to check
+
+Restart the app on your phone first (press `q`, `git pull`, then the usual
+`flutter run` command). The first build after this update takes a little
+longer.
+
+1. **Download a series.** Open any series and tap **Download**. A list of its
+   episodes opens: the free and unlocked ones can be saved, locked ones say
+   "Unlock to download". Tap **Download all open episodes**.
+2. **WiFi only.** With **Download on WiFi only** on (Profile, the default)
+   and the phone on mobile data, episodes say **Waiting for WiFi**. Connect
+   to WiFi: they start by themselves. Each 75-second test episode is about
+   6 MB.
+3. **Watch without a connection.** Turn on **Airplane mode**, open the app,
+   and play a downloaded episode: it plays, with subtitles. Episodes that are
+   not downloaded show the "could not load" message.
+4. **Profile > Downloads** lists everything saved, how much space it takes,
+   and lets you delete one episode or everything.
+5. **Settings are remembered.** Turn **Download on WiFi only** off, close the
+   app completely and reopen it: it is still off.
+
+How it behaves:
+
+- Downloads use the Data saver quality, so they stay small.
+- Episodes saved while a **pass** is active stop playing when the pass ends;
+  free and coin-unlocked episodes stay playable.
+- Downloads live in the app's private storage and are removed with the app.
+  They work on Android; iPhone downloads need extra work later.
+- **Data saver** (Profile, on by default) already keeps streaming at the
+  lowest good quality, and only the next episode is loaded ahead.
+
+### Push notifications: what you need to set up
+
+Notifications ("New episode of Market Queen is out") use Google's **Firebase
+Cloud Messaging**, which is free. It needs a Firebase project before Claude
+can build it:
+
+1. Go to [console.firebase.google.com](https://console.firebase.google.com),
+   sign in with a Google account, and click **Create a project** (name it
+   Palava; Google Analytics is optional).
+2. In the project, click the **Android** icon to add an Android app. For
+   **Android package name** type exactly `com.palava.palava`, then click
+   **Register app**.
+3. Download the **google-services.json** file it offers and put it in
+   `palava\android\app\`. It is not a password, but keep it out of chats.
+4. Tell Claude when it is done. Firebase **Crashlytics** (crash reports) can
+   be switched on in the same project.
+
 ## For developers
 
 - `lib/theme/`: colours, fonts and the app theme (brief: "fireside").
@@ -517,6 +567,13 @@ Nothing here is needed to keep building; test mode works without them.
   `android/gradle.properties`). Ad unlocks are still trusted from the app,
   limited per day on the server; AdMob server-side verification comes with
   the AdMob account.
+- Downloads: `lib/downloads/hls_downloader.dart` saves one quality of an
+  HLS stream (at or under `dataSaverMaxBitrate`, stereo audio, up to
+  `Episode.endsAt`) and rewrites the playlists to local files;
+  `download_manager.dart` queues downloads, waits for WiFi
+  (`connectivity_plus`), and keeps `index.json` in the app support folder.
+  `AppState.loadEpisode` plays the saved copy when there is one (a `file://`
+  HLS playlist, which ExoPlayer plays offline).
 - Sample episodes use Google's public HLS test streams and stop at 75 seconds
   (`Episode.endsAt`); sample WebVTT subtitles come from `sample_data.dart`.
 - `lib/screens/`: one file per screen. `lib/widgets/`: shared pieces.

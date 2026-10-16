@@ -170,7 +170,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
           EpisodeFeed(
             controller: _feed,
             itemCount: _count,
-            loadEpisode: (i) => _state.backend.loadEpisode(_series, i + 1),
+            loadEpisode: (i) => _state.loadEpisode(_series, i + 1),
             initialIndex: _startIndex,
             initialPosition: _startPosition,
             isLocked: _isLocked,

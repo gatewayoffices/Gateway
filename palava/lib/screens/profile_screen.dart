@@ -4,6 +4,7 @@ import '../state/app_state.dart';
 import '../theme/palava_colors.dart';
 import '../theme/palava_theme.dart';
 import '../widgets/common.dart';
+import 'downloads_screen.dart';
 import 'wallet_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -101,9 +102,10 @@ class ProfileScreen extends StatelessWidget {
               _NavTile(
                 icon: Icons.download_outlined,
                 title: 'Downloads',
-                onTap: () => showSampleMessage(
-                  context,
-                  'Downloads arrive in Milestone 7.',
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const DownloadsScreen(),
+                  ),
                 ),
               ),
               _SwitchTile(

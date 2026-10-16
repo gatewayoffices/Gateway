@@ -36,7 +36,7 @@ class _ForYouScreenState extends State<ForYouScreen> {
       controller: _feed,
       itemCount: _series.length,
       loadEpisode: (i) =>
-          AppStateScope.read(context).backend.loadEpisode(_series[i], 1),
+          AppStateScope.read(context).loadEpisode(_series[i], 1),
       active: widget.isActive,
       itemBuilder: (context, index, item) => _FeedPage(
         series: _series[index],

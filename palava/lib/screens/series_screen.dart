@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../data/models.dart';
 import '../state/app_state.dart';
 import '../theme/palava_colors.dart';
-import '../widgets/common.dart';
 import '../widgets/episode_grid.dart';
 import '../widgets/poster_art.dart';
+import 'downloads_screen.dart';
 import 'player_screen.dart';
 
 class SeriesScreen extends StatelessWidget {
@@ -93,13 +93,7 @@ class SeriesScreen extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: () => showSampleMessage(
-                            context,
-                            state.wifiOnlyDownloads
-                                ? 'Downloads arrive in Milestone 7. They will '
-                                      'use WiFi only by default.'
-                                : 'Downloads arrive in Milestone 7.',
-                          ),
+                          onPressed: () => showDownloadSheet(context, series),
                           icon: const Icon(Icons.download_outlined),
                           label: const Text('Download'),
                         ),

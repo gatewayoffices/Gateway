@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ads/rewarded_ads.dart';
@@ -39,10 +42,15 @@ Future<void> main() async {
       !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.android ||
           defaultTargetPlatform == TargetPlatform.iOS);
+  // Downloads live in the app's private storage, removed with the app.
+  final downloadsDir = onPhone
+      ? Directory('${(await getApplicationSupportDirectory()).path}/downloads')
+      : null;
   final state = AppState(
     backend: backend,
     prefs: prefs,
     rewardedAds: onPhone ? AdMobRewardedAds() : null,
+    downloadsDir: downloadsDir,
   );
   runApp(PalavaApp(state: state));
   await state.start();

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,8 @@ import '../backend/backend.dart';
 import '../backend/sample_backend.dart';
 import '../data/models.dart';
 import '../data/sample_data.dart';
+import '../downloads/download_manager.dart';
+import '../downloads/hls_downloader.dart';
 import '../playback/video_controllers.dart';
 import '../playback/watch_history.dart';
 
@@ -37,6 +40,9 @@ class AppState extends ChangeNotifier {
     SharedPreferences? prefs,
     VideoControllerFactory? videoFactory,
     RewardedAds? rewardedAds,
+    Directory? downloadsDir,
+    NetworkStatus? network,
+    HlsDownloader? downloader,
   }) : backend = backend ?? SampleBackend(),
        rewardedAds = rewardedAds ?? const InstantRewardedAds(),
        _prefs = prefs,
@@ -44,7 +50,19 @@ class AppState extends ChangeNotifier {
        createVideoController = videoFactory ?? createNetworkController,
        dataSaver = prefs?.getBool(_dataSaverKey) ?? true,
        subtitles = prefs?.getBool(_subtitlesKey) ?? true,
-       autoUnlock = prefs?.getBool(_autoUnlockKey) ?? false {
+       autoUnlock = prefs?.getBool(_autoUnlockKey) ?? false,
+       wifiOnlyDownloads = prefs?.getBool(_wifiOnlyKey) ?? true,
+       notifications = prefs?.getBool(_notificationsKey) ?? true {
+    if (downloadsDir != null) {
+      downloads = DownloadManager(
+        root: downloadsDir,
+        resolve: _episodeForDownload,
+        wifiOnly: () => wifiOnlyDownloads,
+        maxBitrate: () => _catalog?.config.dataSaverMaxBitrate ?? 800000,
+        network: network,
+        downloader: downloader,
+      );
+    }
     _catalog = this.backend.cachedCatalog;
     phase = _catalog == null ? AppPhase.loading : AppPhase.ready;
     if (this.backend case final SampleBackend sample) {
@@ -55,9 +73,15 @@ class AppState extends ChangeNotifier {
   static const _dataSaverKey = 'data_saver';
   static const _subtitlesKey = 'subtitles';
   static const _autoUnlockKey = 'auto_unlock';
+  static const _wifiOnlyKey = 'wifi_only_downloads';
+  static const _notificationsKey = 'notifications';
 
   final Backend backend;
   final RewardedAds rewardedAds;
+
+  /// Episodes saved on the phone. Null where saving files is not possible
+  /// (tests that do not ask for it).
+  DownloadManager? downloads;
   final SharedPreferences? _prefs;
   final WatchHistory history;
   final VideoControllerFactory createVideoController;
@@ -81,6 +105,7 @@ class AppState extends ChangeNotifier {
     _userChanges = backend.userChanges.listen(_onUserChanged);
     final user = backend.currentUser;
     if (user != null) unawaited(_signedIn(user));
+    unawaited(downloads?.load());
     await refreshCatalog();
   }
 
@@ -147,8 +172,8 @@ class AppState extends ChangeNotifier {
 
   bool dataSaver;
   bool subtitles;
-  bool wifiOnlyDownloads = true;
-  bool notifications = true;
+  bool wifiOnlyDownloads;
+  bool notifications;
 
   Set<String> myList = {};
   Set<String> liked = {};
@@ -170,7 +195,64 @@ class AppState extends ChangeNotifier {
   bool isUnlocked(Series series, int episodeNumber) =>
       hasActivePass ||
       config.isEpisodeFree(series, episodeNumber) ||
-      (_unlocked[series.id]?.contains(episodeNumber) ?? false);
+      (_unlocked[series.id]?.contains(episodeNumber) ?? false) ||
+      // A downloaded copy plays even offline, before the account loads.
+      downloads?.offlineEpisode(series.id, episodeNumber) != null;
+
+  /// The episode to play: the downloaded copy when there is one (no data
+  /// used), otherwise from the server.
+  Future<Episode> loadEpisode(Series series, int number) async =>
+      downloads?.offlineEpisode(series.id, number) ??
+      await backend.loadEpisode(series, number);
+
+  /// Queues every episode of [series] the viewer can watch now and has not
+  /// saved yet. Returns how many were added.
+  int downloadSeries(Series series) {
+    final manager = downloads;
+    if (manager == null) return 0;
+    final numbers = [
+      for (var n = 1; n <= series.episodeCount; n++)
+        if (isUnlocked(series, n)) n,
+    ];
+    return manager.add(
+      series,
+      numbers,
+      playableUntil: (n) => _passOnly(series, n),
+    );
+  }
+
+  /// Queues one episode. Returns false if it is locked.
+  bool downloadEpisode(Series series, int number) {
+    final manager = downloads;
+    if (manager == null || !isUnlocked(series, number)) return false;
+    manager.add(series, [number], playableUntil: (n) => _passOnly(series, n));
+    return true;
+  }
+
+  /// The pass end, for an episode only open because of the pass.
+  DateTime? _passOnly(Series series, int number) {
+    final ownsIt =
+        config.isEpisodeFree(series, number) ||
+        (_unlocked[series.id]?.contains(number) ?? false);
+    if (ownsIt || !hasActivePass) return null;
+    return passEndsAt ?? DateTime.now().add(const Duration(hours: 24));
+  }
+
+  Future<Episode> _episodeForDownload(String seriesId, int number) async {
+    final series = _catalog?.seriesById(seriesId);
+    if (series == null) {
+      throw const DownloadException('This series is no longer available.');
+    }
+    try {
+      return await backend.loadEpisode(series, number);
+    } on BackendException catch (e) {
+      throw DownloadException(
+        e.kind == BackendErrorKind.offline
+            ? 'No connection. Try again when you are online.'
+            : e.message,
+      );
+    }
+  }
 
   void browseAsGuest() {
     enteredApp = true;
@@ -385,11 +467,14 @@ class AppState extends ChangeNotifier {
 
   void setWifiOnlyDownloads(bool value) {
     wifiOnlyDownloads = value;
+    _prefs?.setBool(_wifiOnlyKey, value);
+    downloads?.resume();
     notifyListeners();
   }
 
   void setNotifications(bool value) {
     notifications = value;
+    _prefs?.setBool(_notificationsKey, value);
     notifyListeners();
   }
 
@@ -439,6 +524,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _userChanges?.cancel();
+    downloads?.dispose();
     super.dispose();
   }
 }
