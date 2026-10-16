@@ -2,4 +2,6 @@
 <resources>
     <!-- Palava ember orange, used for notification icons. -->
     <color name="notification_ember">#E2622B</color>
+    <!-- The fireside background, behind the start-up screen. -->
+    <color name="splash_background">#1A120D</color>
 </resources>
