@@ -1,4 +1,4 @@
-package com.palava.palava
+package com.a2shorts.storistory
 
 import io.flutter.embedding.android.FlutterActivity
 

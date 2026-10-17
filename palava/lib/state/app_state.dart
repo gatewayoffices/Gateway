@@ -14,6 +14,7 @@ import '../downloads/hls_downloader.dart';
 import '../notifications/push_service.dart';
 import '../playback/video_controllers.dart';
 import '../playback/watch_history.dart';
+import '../branding.dart';
 
 enum AppLanguage { english, french }
 
@@ -203,7 +204,7 @@ class AppState extends ChangeNotifier {
   final Map<String, Set<int>> _unlocked = {};
 
   String get displayName =>
-      _profileName ?? _user?.name ?? (isSignedIn ? 'Palava viewer' : 'Guest');
+      _profileName ?? _user?.name ?? (isSignedIn ? '$appName viewer' : 'Guest');
 
   String get maskedPhone {
     final digits = (_profilePhone ?? _user?.phone ?? '').replaceAll(

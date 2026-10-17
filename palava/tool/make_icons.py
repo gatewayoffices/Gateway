@@ -1,6 +1,7 @@
-"""Draws the Palava app icon in every size Android, iOS and Google Play need.
+"""Draws the StoriStory app icon in every size Android, iOS and Google Play
+need.
 
-The icon is the logo's Fraunces "P" in cream with the ember full stop, on the
+The icon is the logo's Fraunces "S" in cream with the ember full stop, on the
 fireside background. Run from the palava folder:
 
     python3 tool/make_icons.py
@@ -13,6 +14,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 FONT = ROOT / "assets/fonts/Fraunces-Bold.ttf"
+LETTER = "S"  # first letter of the app name
 
 BACKGROUND = (26, 18, 13)  # #1A120D
 GLOW = (61, 36, 22)  # warm centre
@@ -37,12 +39,13 @@ def background(size):
 
 
 def mark(size, scale, colour_p=CREAM, colour_dot=EMBER):
-    """The "P." mark on a transparent square, filling [scale] of its width."""
+    """The letter-and-dot mark on a transparent square, filling [scale] of
+    its width."""
     big = size * 4  # draw large, then shrink, for smooth edges
     layer = Image.new("RGBA", (big, big), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     font = ImageFont.truetype(str(FONT), int(big * 0.9))
-    left, top, right, bottom = d.textbbox((0, 0), "P", font=font)
+    left, top, right, bottom = d.textbbox((0, 0), LETTER, font=font)
     p_w, p_h = right - left, bottom - top
     dot = p_h * 0.22
     gap = p_h * 0.04
@@ -50,13 +53,13 @@ def mark(size, scale, colour_p=CREAM, colour_dot=EMBER):
     target = big * scale
     k = target / max(total_w, p_h)
     font = ImageFont.truetype(str(FONT), int(big * 0.9 * k))
-    left, top, right, bottom = d.textbbox((0, 0), "P", font=font)
+    left, top, right, bottom = d.textbbox((0, 0), LETTER, font=font)
     p_w, p_h = right - left, bottom - top
     dot, gap = p_h * 0.22, p_h * 0.04
     total_w = p_w + gap + dot
     x0 = (big - total_w) / 2
     y0 = (big - p_h) / 2
-    d.text((x0 - left, y0 - top), "P", font=font, fill=colour_p)
+    d.text((x0 - left, y0 - top), LETTER, font=font, fill=colour_p)
     dx = x0 + p_w + gap
     dy = y0 + p_h - dot
     d.ellipse([dx, dy, dx + dot, dy + dot], fill=colour_dot)

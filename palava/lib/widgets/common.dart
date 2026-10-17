@@ -3,8 +3,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/palava_colors.dart';
 import '../theme/palava_theme.dart';
+import '../branding.dart';
 
-/// Text logo: "Palava" with an ember dot.
+/// Text logo: the app name with an ember dot.
 class PalavaLogo extends StatelessWidget {
   const PalavaLogo({super.key, this.size = 28});
 
@@ -15,13 +16,15 @@ class PalavaLogo extends StatelessWidget {
     return Text.rich(
       TextSpan(
         children: [
-          const TextSpan(text: 'Palava'),
+          const TextSpan(text: appName),
           TextSpan(
             text: '.',
             style: TextStyle(color: PalavaColors.ember, fontSize: size * 1.1),
           ),
         ],
       ),
+      maxLines: 1,
+      softWrap: false,
       style: TextStyle(
         fontFamily: PalavaFonts.title,
         fontWeight: FontWeight.w700,

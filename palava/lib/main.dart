@@ -22,6 +22,7 @@ import 'state/app_state.dart';
 import 'theme/palava_colors.dart';
 import 'theme/palava_theme.dart';
 import 'widgets/common.dart';
+import 'branding.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -71,7 +72,7 @@ class PalavaApp extends StatelessWidget {
     return AppStateScope(
       state: state,
       child: MaterialApp(
-        title: 'Palava',
+        title: appName,
         debugShowCheckedModeBanner: false,
         theme: buildPalavaTheme(),
         navigatorObservers: [playbackRouteObserver],

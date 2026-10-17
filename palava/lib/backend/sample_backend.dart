@@ -4,6 +4,7 @@ import '../data/models.dart';
 import '../data/sample_data.dart';
 import '../playback/watch_history.dart';
 import 'backend.dart';
+import '../branding.dart';
 
 /// Pretend server that lives in the app's memory. Used until Supabase is set
 /// up, and in tests. It follows the same rules as the real database: coins
@@ -104,7 +105,7 @@ class SampleBackend implements Backend {
     myList: {..._myList},
     liked: {..._liked},
     history: const [],
-    displayName: _user == null ? null : 'Palava viewer',
+    displayName: _user == null ? null : '$appName viewer',
     phone: _user?.phone,
     hasActivePass: _hasPass,
     passEndsAt: _hasPass ? _passEndsAt : null,

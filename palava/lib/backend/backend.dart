@@ -1,5 +1,6 @@
 import '../data/models.dart';
 import '../playback/watch_history.dart';
+import '../branding.dart';
 
 /// Why an action on the server failed, in terms the app can explain.
 enum BackendErrorKind {
@@ -30,7 +31,7 @@ class BackendException implements Exception {
       'You have several unfinished payments. Wait for them to be confirmed, '
           'then try again.',
     BackendErrorKind.offline =>
-      'Could not reach Palava. Check your connection and try again.',
+      'Could not reach $appName. Check your connection and try again.',
     BackendErrorKind.unknown =>
       'Something went wrong. Please try again.'
           '${detail == null ? '' : ' ($detail)'}',

@@ -15,7 +15,7 @@ import 'backend_config.dart';
 /// Where Google sign-in returns to the app. Must also be listed in Supabase
 /// under Authentication > URL Configuration > Redirect URLs, and matches the
 /// intent filter in AndroidManifest.xml.
-const authRedirectUrl = 'com.palava.palava://login-callback';
+const authRedirectUrl = 'com.a2shorts.storistory://login-callback';
 
 /// The real backend: Supabase (see supabase/migrations for the database).
 class SupabaseBackend implements Backend {

@@ -15,7 +15,7 @@ val keyProperties = Properties().apply {
 }
 
 android {
-    namespace = "com.palava.palava"
+    namespace = "com.a2shorts.storistory"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -27,7 +27,7 @@ android {
     defaultConfig {
         // The app's permanent ID on Google Play. It can never change after
         // the first upload.
-        applicationId = "com.palava.palava"
+        applicationId = "com.a2shorts.storistory"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24 // Android 7.0, as required by the project brief.

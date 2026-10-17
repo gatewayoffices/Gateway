@@ -16,7 +16,7 @@ class AdminApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Palava admin',
+      title: 'StoriStory admin',
       debugShowCheckedModeBanner: false,
       theme: buildAdminTheme(),
       home: _Gate(api: api),
@@ -158,7 +158,7 @@ class _SignInScreenState extends State<SignInScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text('Palava admin', style: text.headlineSmall),
+                    Text('StoriStory admin', style: text.headlineSmall),
                     const SizedBox(height: 24),
                     TextField(
                       controller: _email,
@@ -228,7 +228,7 @@ class _AdminShellState extends State<AdminShell> {
             leading: const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
               child: Text(
-                'Palava',
+                'StoriStory',
                 style: TextStyle(
                   color: ember,
                   fontWeight: FontWeight.w700,

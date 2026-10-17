@@ -1,11 +1,11 @@
 {
-    "name": "palava_admin",
-    "short_name": "palava_admin",
+    "name": "StoriStory admin",
+    "short_name": "StoriStory",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Palava admin panel",
+    "description": "StoriStory admin panel",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

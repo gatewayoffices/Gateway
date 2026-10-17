@@ -1,4 +1,8 @@
-# Palava — project brief for Claude Code
+# StoriStory — project brief for Claude Code
+
+> **Name change:** the product is now **StoriStory**, published by **A2Shorts
+> LLC**; app ID `com.a2shorts.storistory`. "Palava" below is the original
+> working name; the code folder and internal names still use it.
 
 Palava is a mobile app for original African micro-dramas: vertical series of 1–2 minute episodes that end on cliffhangers, made for viewers in Liberia (and West Africa) and the African diaspora in the US and UK. It should feel like StoryReel, ReelShort or DramaBox, but every story is original and African. "Palava" is a working name.
 

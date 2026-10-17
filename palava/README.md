@@ -1,7 +1,12 @@
-# Palava
+# StoriStory
 
 Original African micro-dramas: short vertical episodes that end on cliffhangers.
-The project brief is in [CLAUDE.md](CLAUDE.md).
+Published by **A2Shorts LLC**. The project brief is in [CLAUDE.md](CLAUDE.md).
+
+The app was built under the working name "Palava"; viewers now see
+**StoriStory** everywhere. The code folder and internal code names still say
+`palava` (viewers never see them). The app's permanent ID on Google Play and
+the App Store is `com.a2shorts.storistory`.
 
 ## Where we are
 
@@ -514,7 +519,7 @@ How it behaves:
 ### Push notifications
 
 One-time setup (done): a Firebase project with an Android app
-`com.palava.palava`, and its **google-services.json** file in
+`com.a2shorts.storistory`, and its **google-services.json** file in
 `palava\android\app\`. That file is kept out of Git; without it the app
 still runs, just without notifications. Keep a copy somewhere safe (or
 download it again from Firebase: gear icon > **Project settings** > **Your
@@ -548,7 +553,7 @@ campaign sent to that topic reaches all of them.
 
 ## Publishing on Google Play
 
-Done in the app: the Palava icon and dark start-up screen, **Delete my
+Done in the app: the StoriStory icon and dark start-up screen, **Delete my
 account** in Profile (Google requires it for apps with sign-in), and
 privacy policy, terms and help links set from the admin panel
 (**Settings** > **Links in the app**).
@@ -593,6 +598,11 @@ cd $HOME\Documents\Gateway\palava
 flutter build appbundle --release --dart-define-from-file=env.json
 ```
 The result is `build\app\outputs\bundle\release\app-release.aab`.
+
+Store graphics are in `palava\store\`: `play-icon-512.png` (app icon) and
+`feature-graphic-1024x500.png` (the banner at the top of the listing). To
+redraw them: `python3 tool/make_icons.py` and
+`python3 tool/make_store_graphics.py`.
 
 ### Step 4: Google Play Console
 
